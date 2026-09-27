@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Star Hauler</title>
+<meta name="description" content="Build a trade fleet, chart the galaxy, fend off pirates, break the blockades, warp to new galaxies.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Audiowide&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+  /* Star Hauler — 70s retro-futurist poster: deep navy, cream, burnt-orange/mustard sunset stripes. */
+  :root { --navy: #121a33; --navy2: #1c2750; --cream: #f4e9d8; --orange: #e8612c; --mustard: #f2b134; --teal: #2a9d8f; --rose: #e76f51; --dim: #8e97b8; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--navy); color: var(--cream); font: 500 15px/1.35 "Space Grotesk", system-ui, sans-serif; overscroll-behavior: none; }
+  h1, h2, .gx-title, .aw, .tabs button { font-family: "Audiowide", "Arial Black", sans-serif; font-weight: 400; }
+  .app { max-width: 480px; margin: 0 auto; }
+  .stripes { height: 10px; background: linear-gradient(var(--mustard) 0 33%, var(--orange) 33% 66%, var(--rose) 66%); }
+  .top { display: flex; gap: 6px; padding: 10px; align-items: center; }
+  .chip { display: flex; gap: 5px; align-items: center; background: var(--navy2); border: 1px solid rgba(244,233,216,.15); border-radius: 8px; padding: 3px 9px; font-weight: 700; }
+  .chip small { color: var(--dim); font-weight: 500; }
+  .back { color: var(--dim); text-decoration: none; }
+  .spacer { flex: 1; }
+  .title { display: flex; align-items: baseline; gap: 8px; padding: 0 12px 6px; }
+  .title h1 { margin: 0; font-size: 1.5rem; color: var(--mustard); letter-spacing: .04em; }
+  .title small { color: var(--dim); }
+  .mapwrap { position: relative; margin: 0 10px; border-radius: 16px; overflow: hidden; border: 2px solid var(--navy2);
+             background: radial-gradient(circle at 50% 110%, rgba(232,97,44,.35), transparent 55%), radial-gradient(circle at 50% 50%, #1a2550, #0b1024); }
+  svg { display: block; width: 100%; height: auto; touch-action: manipulation; }
+  /* 3D mode: star3d.js renders the galaxy; the SVG map stays as a fallback. */
+  #s3d, .plabels { display: none; }
+  body.s3d svg { display: none; }
+  body.s3d #s3d { display: block; width: 100%; aspect-ratio: 400 / 380; cursor: pointer; touch-action: manipulation; }
+  body.s3d .plabels { display: block; position: absolute; inset: 0; pointer-events: none; }
+  .plabels span { position: absolute; left: 0; top: 0; font: 600 .68rem "Space Grotesk", sans-serif; color: var(--cream); text-shadow: 0 1px 3px #000, 0 0 8px #000; white-space: nowrap; opacity: .9; }
+  .planet { cursor: pointer; }
+  .planet text { font-family: "Space Grotesk"; font-size: 9px; fill: var(--cream); text-anchor: middle; }
+  .alert { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: var(--rose); color: #fff; border: 0; border-radius: 999px; padding: 8px 16px; font: 700 .95rem "Space Grotesk"; cursor: pointer; animation: blink .6s infinite alternate; white-space: nowrap; z-index: 3; }
+  @keyframes blink { to { background: #ff3b3b; transform: translateX(-50%) scale(1.06); } }
+  .scout { position: absolute; bottom: 8px; left: 8px; right: 8px; display: flex; gap: 8px; align-items: center; background: rgba(18,26,51,.85); border-radius: 10px; padding: 6px 10px; font-size: .85rem; }
+  .scout .bar { flex: 1; height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; } .scout .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--mustard), var(--orange)); }
+  .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 10px 10px 0; }
+  .tabs button { font-size: .66rem; padding: 9px 2px; border: 0; border-radius: 10px 10px 0 0; background: var(--navy2); color: var(--dim); cursor: pointer; position: relative; letter-spacing: .03em; }
+  .tabs button span { display: block; font-size: 1.15rem; }
+  .tabs button[aria-selected="true"] { background: var(--cream); color: var(--navy); }
+  .tabs .dot { position: absolute; top: 4px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--orange); }
+  .panel { background: var(--cream); color: var(--navy); margin: 0 10px 20px; border-radius: 0 0 16px 16px; padding: 10px; min-height: 240px; }
+  .row { display: flex; gap: 10px; align-items: center; padding: 9px 6px; border-bottom: 1px dashed rgba(18,26,51,.2); }
+  .row .e { font-size: 1.8rem; width: 40px; text-align: center; } .row .info { flex: 1; min-width: 0; }
+  .row b { font-family: "Audiowide"; font-weight: 400; font-size: .92rem; } .row small { display: block; color: #5b6385; font-size: .8rem; }
+  .btn { font: 700 .82rem "Space Grotesk"; border: 0; border-radius: 8px; padding: 8px 10px; min-width: 80px; background: var(--orange); color: #fff; cursor: pointer; box-shadow: 0 3px 0 #a8401a; }
+  .btn:disabled { background: #b9b3a8; box-shadow: 0 3px 0 #8f897f; cursor: default; }
+  .btn.alt { background: var(--teal); box-shadow: 0 3px 0 #1b6b61; } .btn.gem { background: #7b5cff; box-shadow: 0 3px 0 #4f37b8; }
+  .note { color: #5b6385; font-size: .82rem; margin: 6px 4px; }
+  .res { display: inline-block; font-size: .7rem; padding: 1px 6px; border-radius: 99px; background: var(--navy); color: var(--cream); margin-left: 4px; font-family: "Space Grotesk"; }
+  /* dogfight */
+  .fight { position: fixed; inset: 0; z-index: 80; background: radial-gradient(circle, rgba(18,26,51,.9), rgba(5,8,20,.97)); touch-action: none; }
+  .fight .hdr { position: absolute; top: 16px; left: 0; right: 0; text-align: center; }
+  .fight .hdr h2 { margin: 0; color: var(--rose); font-size: 1.4rem; }
+  .fight .hdr .bar { width: min(80%, 360px); margin: 8px auto 0; height: 12px; border-radius: 6px; background: rgba(255,255,255,.1); overflow: hidden; } .fight .hdr .bar i { display: block; height: 100%; background: var(--rose); }
+  .fight .t { font-family: "Audiowide"; color: var(--mustard); margin-top: 6px; }
+  .enemy { position: absolute; font-size: 2.6rem; cursor: crosshair; transform: translate(-50%, -50%); transition: left .9s ease-in-out, top .9s ease-in-out; filter: drop-shadow(0 0 8px rgba(231,111,81,.8)); }
+  .enemy.boss { font-size: 5.5rem; }
+  .boom { position: absolute; font-size: 2.4rem; transform: translate(-50%, -50%); pointer-events: none; animation: boom .5s forwards; }
+  @keyframes boom { to { transform: translate(-50%, -50%) scale(2); opacity: 0; } }
+  .gx-toasts { position: fixed; top: 58px; left: 50%; transform: translateX(-50%); z-index: 90; display: grid; gap: 6px; width: min(92vw, 420px); pointer-events: none; }
+  .gx-toast { background: var(--navy2); border-left: 4px solid var(--mustard); color: var(--cream); border-radius: 8px; padding: 8px 12px; box-shadow: 0 6px 16px rgba(0,0,0,.4); animation: tin .25s; }
+  .gx-toast.out { opacity: 0; transition: opacity .4s; } @keyframes tin { from { opacity: 0; transform: translateY(-10px); } }
+  .gx-backdrop { position: fixed; inset: 0; background: rgba(5,8,20,.75); display: grid; place-items: center; z-index: 95; padding: 16px; }
+  .gx-modal { width: min(100%, 370px); background: var(--cream); color: var(--navy); border-radius: 18px; padding: 0 20px 20px; text-align: center; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,.5); animation: tin .25s; }
+  .gx-modal::before { content: ""; display: block; height: 10px; margin: 0 -20px 16px; background: linear-gradient(90deg, var(--mustard) 0 33%, var(--orange) 33% 66%, var(--rose) 66%); }
+  .gx-title { margin: 0 0 8px; font-size: 1.25rem; color: var(--navy); }
+  .gx-body p { margin: 6px 0; } .gx-demo { font-size: .75rem; color: #5b6385; }
+  .gx-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+  .gx-btn { font: 700 .95rem "Space Grotesk"; border: 0; border-radius: 10px; padding: 10px 18px; background: var(--orange); color: #fff; box-shadow: 0 3px 0 #a8401a; cursor: pointer; }
+  .gx-btn.ghost { background: transparent; color: var(--navy); box-shadow: inset 0 0 0 2px var(--navy); } .gx-btn.gem { background: #7b5cff; box-shadow: 0 3px 0 #4f37b8; } .gx-btn.buy { background: var(--teal); box-shadow: 0 3px 0 #1b6b61; }
+  .gx-product { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; margin-bottom: 10px; background: #fff; border: 2px solid rgba(18,26,51,.1); }
+  .gx-product b { font-family: "Audiowide"; font-weight: 400; } .gx-product small { color: #5b6385; margin-bottom: 6px; } .gx-product.owned { opacity: .5; } .gx-product .gx-btn { align-self: flex-start; }
+  .gx-badge { position: absolute; top: -10px; right: 10px; background: var(--orange); color: #fff; font: 700 .65rem "Space Grotesk"; padding: 2px 8px; border-radius: 999px; }
+  .gx-float { position: fixed; z-index: 99; pointer-events: none; font: 400 1.1rem "Audiowide"; color: var(--mustard); text-shadow: 0 2px 0 #000; animation: fl .9s forwards; transform: translate(-50%, -50%); }
+  @keyframes fl { to { transform: translate(-50%, -160%); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="stripes"></div>
+<div class="app">
+  <div class="top">
+    <a class="back" href="../index.html">◀</a>
+    <div class="chip">💳 <span id="cr">0</span><small id="crs"></small></div>
+    <div class="chip">💎 <span id="gems">0</span></div>
+    <div class="chip" title="Dark Matter: each unit ×1.1 to all income">🌌 <span id="dm">0</span></div>
+    <span class="spacer"></span>
+  </div>
+  <div class="title"><h1>STAR HAULER</h1><small id="galaxy"></small></div>
+  <div class="mapwrap">
+    <svg id="map" viewBox="0 0 400 360"></svg>
+    <canvas id="s3d" aria-label="Galaxy map: tap a world"></canvas>
+    <div class="plabels" id="plabels" aria-hidden="true"></div>
+    <button class="alert" id="alert" hidden>🚨 PIRATES! TAP TO DEFEND</button>
+    <div class="scout" id="scout"></div>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-t="fleet"><span>🚀</span>Fleet</button><button data-t="planets"><span>🪐</span>Worlds</button><button data-t="crew"><span>👩‍🚀</span>Crew</button>
+    <button data-t="warp"><span>🌀</span>Warp</button><button data-t="shop"><span>💎</span>Shop</button>
+  </nav>
+  <section class="panel" id="panel"></section>
+</div>
+<div class="fight" id="fight" hidden><div class="hdr"><h2 id="fTitle"></h2><div class="bar"><i id="fBar"></i></div><div class="t" id="fTime"></div></div></div>
+<script type="module" src="star3d.js"></script>
+<script src="../shared/engine.js"></script>
+<script>
+const G = Grind, KEY = "starhauler-v1";
+const RES = { iron: ["🔩", "Iron", 1], ice: ["🧊", "Ice", 2.2], spice: ["🌶️", "Spice", 5], crystal: ["💠", "Crystal", 11], plasma: ["🔥", "Plasma", 24], relic: ["🗿", "Relics", 55], dark: ["🌑", "Void Ore", 120] };
+// x, y on the 400x360 map; sector gates sit before planets 4 and 8.
+const PLANETS = [
+  { n: "Dustbowl", e: "🟤", x: 150, y: 220, r: "iron", lore: "A mining rock. Everyone starts here." },
+  { n: "Frostline", e: "⚪", x: 245, y: 230, r: "ice", lore: "Glaciers older than the sun.", crew: "nova" },
+  { n: "Bazaar Prime", e: "🟠", x: 120, y: 145, r: "spice", lore: "Everything is for sale. Especially you.", crew: "bolt" },
+  { n: "Glimmer", e: "🔵", x: 280, y: 150, r: "crystal", lore: "The whole surface hums at night." },
+  { n: "Cinder", e: "🔴", x: 60, y: 250, r: "plasma", lore: "Rains fire. Pays well.", crew: "zix", sector: 1 },
+  { n: "Old Earth", e: "🌍", x: 340, y: 250, r: "relic", lore: "Humanity's cradle. A museum now." },
+  { n: "Mirage", e: "🟣", x: 60, y: 85, r: "crystal", lore: "Half the time it isn't there.", crew: "vix" },
+  { n: "Titan's Ring", e: "🪐", x: 340, y: 80, r: "plasma", lore: "The rings are made of lost ships." },
+  { n: "The Shroud", e: "⚫", x: 200, y: 40, r: "dark", lore: "Light goes in. Nothing comes out.", crew: "octavia", sector: 2 },
+  { n: "Nexus", e: "🌀", x: 30, y: 170, r: "dark", lore: "Every route in the galaxy crosses here." },
+  { n: "Eden-9", e: "🟢", x: 370, y: 170, r: "relic", lore: "Too perfect. Something built it." },
+  { n: "Edge", e: "✴️", x: 200, y: 330, r: "dark", lore: "Beyond this, the map is blank." },
+];
+const HOME = { x: 200, y: 175 };
+const GATES = [{ at: 4, name: "Captain Redscar", e: "🏴‍☠️", hp: 3000 }, { at: 8, name: "The Void Admiral", e: "👾", hp: 4e6 }];
+const CREW = {
+  nova: { e: "🧑‍🚀", name: "Nova", role: "Navigator", desc: l => `Scouting ${50 + l * 25}% faster` },
+  bolt: { e: "🤖", name: "BOLT-7", role: "Engineer", desc: l => `Ships ${20 + l * 10}% faster` },
+  zix: { e: "👽", name: "Zix", role: "Trader", desc: l => `+${50 + l * 25}% credits` },
+  vix: { e: "🦊", name: "Vix", role: "Gunner", desc: l => `Cannons ×${2 + l}` },
+  octavia: { e: "🐙", name: "Octavia", role: "Quartermaster", desc: l => `Cargo +${50 + l * 25}%` },
+};
+const UPS = [
+  { id: "engine", e: "🔥", name: "Ion Engines", base: 120, g: 2.1, f: l => `Speed ×${(1 + l * 0.25).toFixed(2)}` },
+  { id: "cargo", e: "📦", name: "Cargo Bays", base: 150, g: 2.2, f: l => `Cargo ×${(1 + l * 0.5).toFixed(1)}` },
+  { id: "shield", e: "🛡️", name: "Deflector Shields", base: 300, g: 2.4, f: l => `${Math.round(100 - 100 * Math.pow(0.85, l))}% fewer ambushes` },
+  { id: "cannon", e: "💥", name: "Cannons", base: 250, g: 2.2, f: l => `${G.fmt(cannon(l))} dmg per tap` },
+];
+const DEF = { cr: 60, gems: 25, dm: 0, galaxy: 1, found: 1, ships: 1, routes: { 0: 1 }, up: {}, crew: {}, gates: {}, scoutT: 0, trips: 0, owned: {}, wins: 0 };
+const S = G.load(KEY, DEF);
+
+// ---------- math ----------
+const lv = (id) => S.up[id] || 0;
+const crewLv = (id) => S.crew[id] === undefined ? -1 : S.crew[id];
+const cannon = (l = lv("cannon")) => 5 * Math.pow(1.9, l) * (crewLv("vix") >= 0 ? 2 + crewLv("vix") : 1) * dmMult();
+const dmMult = () => Math.pow(1.1, S.dm);
+const galaxyMult = () => Math.pow(8, S.galaxy - 1);
+const speed = () => 38 * (1 + lv("engine") * 0.25) * (crewLv("bolt") >= 0 ? 1.2 + crewLv("bolt") * 0.1 : 1);
+const cargo = () => 10 * (1 + lv("cargo") * 0.5) * (crewLv("octavia") >= 0 ? 1.5 + crewLv("octavia") * 0.25 : 1);
+const incomeMult = () => dmMult() * galaxyMult() * (crewLv("zix") >= 0 ? 1.5 + crewLv("zix") * 0.25 : 1) * (S.owned.starter ? 2 : 1);
+const dist = (p) => Math.hypot(p.x - HOME.x, p.y - HOME.y);
+const tripPay = (i) => cargo() * RES[PLANETS[i].r][2] * dist(PLANETS[i]) / 40 * incomeMult();
+const tripTime = (i) => dist(PLANETS[i]) * 2 / speed();
+const assigned = () => Object.values(S.routes).reduce((a, b) => a + b, 0);
+const idleShips = () => S.ships - assigned();
+const shipCost = () => Math.ceil(80 * Math.pow(1.75, S.ships - 1) * galaxyMult());
+const upCost = (u) => Math.ceil(u.base * Math.pow(u.g, lv(u.id)) * galaxyMult());
+const scoutTime = () => Math.ceil(12 * Math.pow(1.55, S.found - 1) / (crewLv("nova") >= 0 ? 1.5 + crewLv("nova") * 0.25 : 1));
+const incomeRate = () => Object.entries(S.routes).reduce((a, [i, n]) => a + n * tripPay(+i) / tripTime(+i), 0);
+const gateBlocking = () => GATES.find(g => S.found === g.at && !S.gates[g.at]);
+const pendingDM = () => S.found >= PLANETS.length ? 3 + S.galaxy * 2 + Math.floor(Math.log10(Math.max(1, S.trips))) : 0;
+
+// ---------- map ----------
+const svg = document.getElementById("map"), NS = "http://www.w3.org/2000/svg";
+let ships = []; // runtime flying ships {route, t, dir}
+function syncShips() {
+  const want = []; Object.entries(S.routes).forEach(([i, n]) => { for (let k = 0; k < n; k++) want.push(+i); });
+  ships = want.map((r, k) => ships.find(s => s.route === r && !s.used && (s.used = true)) || { route: r, t: Math.random(), dir: 1, paused: 0 });
+  ships.forEach(s => delete s.used);
+}
+function drawMap() {
+  let h = `<defs><radialGradient id="sun"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".6" stop-color="#f2b134"/><stop offset="1" stop-color="#e8612c" stop-opacity="0"/></radialGradient></defs>`;
+  for (let k = 0; k < 70; k++) h += `<circle cx="${(k * 137) % 400}" cy="${(k * 89) % 360}" r="${k % 5 ? .6 : 1.2}" fill="#f4e9d8" opacity="${.2 + (k % 4) * .15}"/>`;
+  [60, 110, 160].forEach(r => h += `<circle cx="${HOME.x}" cy="${HOME.y}" r="${r}" fill="none" stroke="#f4e9d8" stroke-opacity=".06" stroke-dasharray="2 5"/>`);
+  PLANETS.forEach((p, i) => { if (i < S.found && S.routes[i]) h += `<line x1="${HOME.x}" y1="${HOME.y}" x2="${p.x}" y2="${p.y}" stroke="#f2b134" stroke-opacity=".5" stroke-dasharray="4 4"/>`; });
+  h += `<circle cx="${HOME.x}" cy="${HOME.y}" r="22" fill="url(#sun)"/><text x="${HOME.x}" y="${HOME.y + 5}" font-size="16" text-anchor="middle">🛰️</text>`;
+  PLANETS.forEach((p, i) => {
+    if (i < S.found) h += `<g class="planet" data-p="${i}"><circle cx="${p.x}" cy="${p.y}" r="17" fill="#1c2750" stroke="${S.routes[i] ? "#f2b134" : "#8e97b8"}" stroke-width="1.5"/>
+      <text x="${p.x}" y="${p.y + 6}" font-size="17">${p.e}</text><text x="${p.x}" y="${p.y + 29}">${p.n}${S.routes[i] ? " ·" + S.routes[i] + "🚀" : ""}</text></g>`;
+    else if (i === S.found) h += `<g><circle cx="${p.x}" cy="${p.y}" r="15" fill="none" stroke="#e8612c" stroke-dasharray="3 3"><animate attributeName="r" values="13;17;13" dur="2s" repeatCount="indefinite"/></circle><text x="${p.x}" y="${p.y + 5}" font-size="13" text-anchor="middle" fill="#e8612c">?</text></g>`;
+  });
+  const gate = gateBlocking(); if (gate) { const p = PLANETS[gate.at]; h += `<text x="${p.x}" y="${p.y - 22}" font-size="22" text-anchor="middle">${gate.e}</text>`; }
+  h += `<g id="shipLayer"></g>`;
+  svg.innerHTML = h;
+  svg.querySelectorAll("[data-p]").forEach(g => g.onclick = () => planetInfo(+g.dataset.p));
+  if (view3d) Star3D.sync(S.found, S.routes, gateBlocking());
+}
+function drawShips() {
+  if (view3d) return; // the 3D view draws ships every frame
+  const layer = document.getElementById("shipLayer"); if (!layer) return;
+  layer.innerHTML = ships.map(s => { const p = PLANETS[s.route], x = HOME.x + (p.x - HOME.x) * s.t, y = HOME.y + (p.y - HOME.y) * s.t;
+    const ang = Math.atan2(p.y - HOME.y, p.x - HOME.x) * 180 / Math.PI + (s.dir > 0 ? 45 : 225);
+    return `<text x="${x}" y="${y}" font-size="11" text-anchor="middle" transform="rotate(${ang} ${x} ${y})" opacity="${s.paused > 0 ? .3 : 1}">🚀</text>`; }).join("");
+}
+
+// ---------- scouting ----------
+function scoutUi() {
+  const el = document.getElementById("scout"), gate = gateBlocking();
+  if (S.found >= PLANETS.length) { el.innerHTML = `🌌 Galaxy fully charted. Warp for Dark Matter!`; return; }
+  if (gate) { el.innerHTML = `${gate.e} <b style="flex:1">${gate.name} blocks the way!</b><button class="btn" id="gateBtn">Attack</button>`; el.querySelector("#gateBtn").onclick = () => startFight(true); return; }
+  if (!S.scoutT) { el.innerHTML = `🔭 <span style="flex:1">Unknown signal detected</span><button class="btn alt" id="scoutBtn">Scout · ${G.time(scoutTime())}</button>`; el.querySelector("#scoutBtn").onclick = () => { S.scoutT = Date.now() + scoutTime() * 1000; G.sfx("up"); scoutUi(); }; return; }
+  const left = (S.scoutT - Date.now()) / 1000;
+  if (left <= 0) { el.innerHTML = `📡 <b style="flex:1">Scout has returned!</b><button class="btn" id="revealBtn">Reveal</button>`; el.querySelector("#revealBtn").onclick = reveal; return; }
+  el.innerHTML = `🔭 Scouting… <div class="bar"><i style="width:${(1 - left / scoutTime()) * 100}%"></i></div><span>${G.time(left)}</span><button class="btn gem" id="rush" style="min-width:0">⏩ ${rushCost(left)}💎</button>`;
+  el.querySelector("#rush").onclick = () => { const c = rushCost((S.scoutT - Date.now()) / 1000); if (S.gems < c) return G.toast("Not enough 💎"); S.gems -= c; S.scoutT = Date.now(); scoutUi(); };
+}
+const rushCost = (secs) => Math.max(1, Math.ceil(secs / 30));
+function reveal() {
+  const p = PLANETS[S.found]; S.found++; S.scoutT = 0; G.sfx("rare"); S.gems += 5;
+  const c = p.crew && CREW[p.crew];
+  G.modal(`🪐 ${p.n} discovered!`, `<div style="font-size:3.5rem">${p.e}</div><p><i>${p.lore}</i></p><p>Resource: ${RES[p.r][0]} <b>${RES[p.r][1]}</b> (value ×${RES[p.r][2]})</p>${c ? `<p>${c.e} <b>${c.name}</b> the ${c.role} wants to join your crew!</p>` : ""}<p class="gx-demo">+5 💎</p>`,
+    [{ label: c ? "Welcome aboard!" : "Chart it", onClick: () => { if (c) { S.crew[p.crew] = 0; G.toast(`${c.e} ${c.name} joined! ${c.desc(0)}`); } } }]);
+  if (S.found === PLANETS.length) G.achieve(S, "chart" + S.galaxy, `Charted galaxy ${S.galaxy}`, 100, g => S.gems += g);
+  drawMap(); render();
+}
+
+// ---------- pirates & dogfights ----------
+let ambushT = 50, ambush = null, fight = null;
+function tickAmbush(dt) {
+  if (fight) return; // the clock stops while you are fighting
+  if (ambush) { ambush.t -= dt; if (ambush.t <= 0) { const s = ambush.ship; s.paused = 8; G.toast(`☠️ Pirates looted a ship at ${PLANETS[s.route].n}. Cargo lost!`); G.sfx("bad"); ambush = null; document.getElementById("alert").hidden = true; } return; }
+  if (!ships.length) return;
+  ambushT -= dt;
+  if (ambushT <= 0) {
+    ambushT = (60 + Math.random() * 60) / Math.pow(0.85, lv("shield"));
+    const s = ships[Math.random() * ships.length | 0]; ambush = { ship: s, t: 15 }; s.paused = 99;
+    const a = document.getElementById("alert"); a.hidden = false; G.sfx("bad");
+  }
+}
+document.getElementById("alert").onclick = () => startFight(false);
+function startFight(boss) {
+  const gate = gateBlocking(), fEl = document.getElementById("fight");
+  const count = boss ? 1 : 4 + Math.min(6, Math.floor(S.found / 2));
+  const hpEach = boss ? gate.hp * galaxyMult() : 3 * cannon(0) * Math.pow(1.5, S.found);
+  fight = { boss, gate, enemies: [], t: boss ? 30 : 12, total: hpEach * count, hpLeft: hpEach * count };
+  fEl.hidden = false; fEl.querySelectorAll(".enemy,.boom").forEach(e => e.remove());
+  document.getElementById("fTitle").textContent = boss ? `${gate.e} ${gate.name}` : "☠️ Pirate raiders!";
+  for (let k = 0; k < count; k++) {
+    const en = G.el("div", "enemy" + (boss ? " boss" : ""), boss ? gate.e : ["🛸", "🏴‍☠️", "👾"][k % 3]);
+    en.dataset.hp = hpEach; en.dataset.max = hpEach; fEl.appendChild(en); fight.enemies.push(en); wander(en);
+    en.addEventListener("pointerdown", (e) => { e.stopPropagation(); shoot(en, e.clientX, e.clientY); });
+  }
+  G.sfx("bad");
+}
+function wander(en) { en.style.left = (12 + Math.random() * 76) + "%"; en.style.top = (25 + Math.random() * 60) + "%"; }
+function shoot(en, x, y) {
+  if (!fight) return;
+  const d = cannon(); en.dataset.hp -= d; fight.hpLeft -= d; G.sfx("hit"); G.float(x, y, "-" + G.fmt(d));
+  if (+en.dataset.hp <= 0) { const b = G.el("div", "boom", "💥"); b.style.left = en.style.left; b.style.top = en.style.top; en.parentNode.appendChild(b); setTimeout(() => b.remove(), 500); en.remove(); fight.enemies = fight.enemies.filter(e => e !== en); }
+  if (!fight.enemies.length) endFight(true);
+}
+function tickFight(dt) {
+  if (!fight) return;
+  fight.t -= dt;
+  if (Math.random() < dt * 1.2) fight.enemies.forEach(wander);
+  document.getElementById("fBar").style.width = Math.max(0, fight.hpLeft / fight.total * 100) + "%";
+  document.getElementById("fTime").textContent = Math.ceil(fight.t) + "s";
+  if (fight.t <= 0) endFight(false);
+}
+function endFight(won) {
+  const f = fight; fight = null; document.getElementById("fight").hidden = true;
+  if (f.boss) {
+    if (won) { S.gates[f.gate.at] = 1; S.gems += 25; G.sfx("rare"); G.modal(`${f.gate.e} ${f.gate.name} defeated!`, `<p>The blockade is broken. A new sector of space is open to explore.</p><p>+25 💎</p>`); G.achieve(S, "gate" + f.gate.at, `Broke the ${f.gate.name} blockade`, 50, g => S.gems += g); }
+    else G.modal("Retreat!", `<p>${f.gate.name} is too strong. Upgrade your 💥 Cannons and try again.</p>`);
+  } else {
+    if (ambush) { ambush.ship.paused = 0; ambush = null; document.getElementById("alert").hidden = true; }
+    if (won) { const bounty = Math.ceil(incomeRate() * 30 + 50 * galaxyMult()); S.cr += bounty; S.wins++; G.sfx("coin"); G.toast(`🏆 Pirates repelled! Bounty +💳${G.fmt(bounty)}`); if (S.wins === 25) G.achieve(S, "ace", "Space Ace (25 wins)", 60, g => S.gems += g); }
+    else G.toast("💨 The pirates got away, but your ship is safe.");
+  }
+  scoutUi(); drawMap(); render();
+}
+
+// ---------- panels ----------
+let tab = "fleet";
+function render() {
+  const el = document.getElementById("panel");
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.t === tab));
+  if (tab === "fleet") {
+    el.innerHTML = `<div class="row"><span class="e">🚀</span><div class="info"><b>Fleet · ${S.ships} ship${S.ships > 1 ? "s" : ""}</b><small>${idleShips()} idle · assign ships to worlds in the Worlds tab</small></div>
+      <button class="btn" id="buyShip" data-cost="${shipCost()}">💳${G.fmt(shipCost())}</button></div>` +
+      UPS.map(u => `<div class="row"><span class="e">${u.e}</span><div class="info"><b>${u.name} · Mk ${lv(u.id) + 1}</b><small>${u.f(lv(u.id))} → ${u.f(lv(u.id) + 1)}</small></div>
+      <button class="btn" data-up="${u.id}" data-cost="${upCost(u)}">💳${G.fmt(upCost(u))}</button></div>`).join("");
+    el.querySelector("#buyShip").onclick = () => { const c = shipCost(); if (S.cr < c) return; S.cr -= c; S.ships++; G.sfx("up");
+      const best = [...Array(S.found).keys()].sort((a, b) => tripPay(b) / tripTime(b) - tripPay(a) / tripTime(a))[0]; S.routes[best] = (S.routes[best] || 0) + 1;
+      G.toast(`🚀 New ship launched to ${PLANETS[best].n}`); syncShips(); drawMap(); render(); };
+    el.querySelectorAll("[data-up]").forEach(b => b.onclick = () => { const u = UPS.find(x => x.id === b.dataset.up), c = upCost(u); if (S.cr < c) return; S.cr -= c; S.up[u.id] = lv(u.id) + 1; G.sfx("up"); render(); });
+  }
+  if (tab === "planets") {
+    el.innerHTML = PLANETS.slice(0, S.found).map((p, i) => `<div class="row"><span class="e">${p.e}</span><div class="info"><b>${p.n}</b><span class="res">${RES[p.r][0]} ${RES[p.r][1]}</span>
+      <small>💳${G.fmt(tripPay(i))}/trip · ${tripTime(i).toFixed(1)}s round trip · ${S.routes[i] || 0} ship${S.routes[i] === 1 ? "" : "s"}</small></div>
+      <button class="btn alt" data-rm="${i}" ${S.routes[i] ? "" : "disabled"} style="min-width:36px">−</button><button class="btn" data-add="${i}" ${idleShips() ? "" : "disabled"} style="min-width:36px">+</button></div>`).join("") +
+      `<p class="note">Farther worlds and rarer resources pay more per trip. ${idleShips() ? `<b>${idleShips()} ship(s) idle!</b>` : ""}</p>`;
+    el.querySelectorAll("[data-add]").forEach(b => b.onclick = () => { const i = +b.dataset.add; if (!idleShips()) return; S.routes[i] = (S.routes[i] || 0) + 1; syncShips(); drawMap(); render(); });
+    el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { const i = +b.dataset.rm; if (!S.routes[i]) return; S.routes[i]--; if (!S.routes[i]) delete S.routes[i]; syncShips(); drawMap(); render(); });
+  }
+  if (tab === "crew") {
+    const all = Object.entries(CREW);
+    el.innerHTML = all.map(([id, c]) => { const l = crewLv(id), cost = Math.ceil(500 * Math.pow(3, Math.max(0, l)) * galaxyMult());
+      return l < 0 ? `<div class="row" style="opacity:.5"><span class="e">❔</span><div class="info"><b>Unknown ${c.role}</b><small>Found on an undiscovered world</small></div></div>`
+        : `<div class="row"><span class="e">${c.e}</span><div class="info"><b>${c.name} · ${c.role} · Lv ${l + 1}</b><small>${c.desc(l)} → ${c.desc(l + 1)}</small></div><button class="btn" data-crew="${id}" data-cost="${cost}">💳${G.fmt(cost)}</button></div>`; }).join("");
+    el.querySelectorAll("[data-crew]").forEach(b => b.onclick = () => { const id = b.dataset.crew, c = +b.dataset.cost; if (S.cr < c) return; S.cr -= c; S.crew[id]++; G.sfx("up"); render(); });
+  }
+  if (tab === "warp") {
+    const dm = pendingDM();
+    el.innerHTML = `<div style="text-align:center"><div style="font-size:3rem">🌀</div><h2 class="aw" style="margin:0">Warp Drive</h2>
+      <p class="note">Chart all ${PLANETS.length} worlds, then warp to a new galaxy: richer (×8 income), harder, and you gain 🌌 Dark Matter (each ×1.1 to everything, forever). Your fleet, upgrades and credits reset; crew and gems stay.</p>
+      <p>Galaxy <b>${S.galaxy}</b> · worlds charted <b>${S.found}/${PLANETS.length}</b></p>
+      <button class="btn" id="warpBtn" ${dm ? "" : "disabled"}>${dm ? `Warp for 🌌 ${dm}` : "Chart every world first"}</button></div>`;
+    el.querySelector("#warpBtn").onclick = () => G.modal("Engage warp drive?", `<p>Travel to galaxy ${S.galaxy + 1} and gain <b>🌌 ${dm}</b> Dark Matter.</p>`, [{ label: "Stay", cls: "ghost" }, { label: "WARP!", onClick: () => {
+      S.dm += dm; S.galaxy++; Object.assign(S, { cr: 60 * galaxyMult(), found: 1, ships: 1, routes: { 0: 1 }, up: {}, gates: {}, scoutT: 0 }); G.sfx("rare");
+      G.achieve(S, "warp" + Math.min(S.galaxy, 5), `Reached galaxy ${S.galaxy}`, 100, g => S.gems += g); syncShips(); drawMap(); scoutUi(); render(); G.save(KEY, S); } }]);
+  }
+  if (tab === "shop") {
+    const day = G.dailyDay(S);
+    G.renderStore(el, S, () => render(), `<div class="row"><span class="e">🎁</span><div class="info"><b>Daily supply crate</b><small>${day ? `Day ${day}/7: ${day === 7 ? 100 : day * 10} 💎` : "Back tomorrow · streak " + (S.daily?.streak || 0)}</small></div><button class="btn" id="daily" ${day ? "" : "disabled"}>${day ? "Open" : "✓"}</button></div>
+      <div class="row"><span class="e">⏩</span><div class="info"><b>Hyperdrive burst</b><small>2 hours of trade income instantly</small></div><button class="btn gem" id="burst" data-cost="50" data-cur="gems">50 💎</button></div>`);
+    const d = el.querySelector("#daily"); if (d) d.onclick = () => { const n = G.claimDaily(S); if (!n) return; S.gems += (n === 7 ? 100 : n * 10) + (S.owned.vip ? 50 : 0); G.sfx("rare"); document.querySelector('[data-t="shop"] .dot')?.remove(); render(); };
+    el.querySelector("#burst").onclick = () => { if (S.gems < 50) return; S.gems -= 50; const c = incomeRate() * 7200; S.cr += c; G.toast(`⏩ +💳${G.fmt(c)}`); render(); };
+  }
+  hud();
+}
+function planetInfo(i) {
+  const p = PLANETS[i];
+  G.modal(`${p.e} ${p.n}`, `<p><i>${p.lore}</i></p><p>${RES[p.r][0]} ${RES[p.r][1]} · 💳${G.fmt(tripPay(i))} per trip</p><p>${S.routes[i] || 0} ship(s) assigned</p>`,
+    [{ label: "Close", cls: "ghost" }, { label: "+ Assign ship", onClick: () => { if (!idleShips()) return G.toast("No idle ships. Buy one in Fleet."); S.routes[i] = (S.routes[i] || 0) + 1; syncShips(); drawMap(); render(); } }]);
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
+function hud() {
+  document.getElementById("cr").textContent = G.fmt(S.cr);
+  document.getElementById("crs").textContent = "+" + G.fmt(incomeRate()) + "/s";
+  document.getElementById("gems").textContent = G.fmt(S.gems);
+  document.getElementById("dm").textContent = S.dm;
+  document.getElementById("galaxy").textContent = `Galaxy ${S.galaxy}${S.galaxy > 1 ? " · ×" + G.fmt(galaxyMult()) + " riches" : ""}`;
+  document.querySelectorAll("#panel [data-cost]").forEach(b => b.disabled = S[b.dataset.cur || "cr"] < +b.dataset.cost);
+  const shop = document.querySelector('[data-t="shop"]'); if (G.dailyDay(S) && !shop.querySelector(".dot")) shop.insertAdjacentHTML("beforeend", '<i class="dot"></i>');
+  const fl = document.querySelector('[data-t="planets"]'); const dot = fl.querySelector(".dot"); if (idleShips() && !dot) fl.insertAdjacentHTML("beforeend", '<i class="dot"></i>'); else if (!idleShips() && dot) dot.remove();
+}
+
+// ---------- loop ----------
+let last = performance.now(), uiT = 0, scoutTick = 0;
+function frame(t) {
+  const dt = Math.min(0.1, (t - last) / 1000); last = t;
+  ships.forEach(s => {
+    if (s.paused > 0) { s.paused -= dt; return; }
+    const p = PLANETS[s.route]; s.t += s.dir * speed() * dt / dist(p);
+    if (s.t >= 1) { s.t = 1; s.dir = -1; }
+    if (s.t <= 0) { s.t = 0; s.dir = 1; const pay = tripPay(s.route); S.cr += pay; S.trips++; if (Math.random() < 0.15) { const r = svg.getBoundingClientRect(), [fx, fy] = view3d ? Star3D.project(HOME) : [r.left + HOME.x / 400 * r.width, r.top + HOME.y / 360 * r.height]; G.float(fx, fy, "+" + G.fmt(pay)); } }
+  });
+  drawShips(); if (view3d) Star3D.draw(ships, t, dt); tickAmbush(dt); tickFight(dt);
+  scoutTick -= dt; if (scoutTick <= 0) { scoutTick = 0.5; if (S.scoutT) scoutUi(); }
+  uiT -= dt; if (uiT <= 0) { uiT = 0.25; hud(); }
+  requestAnimationFrame(frame);
+}
+
+// ---------- boot ----------
+const away = G.awaySeconds(S, S.owned.vip ? 24 : 8);
+if (away > 60 && incomeRate() > 0) {
+  const got = incomeRate() * away * (S.owned.vip ? 1 : 0.5);
+  G.modal("Fleet report", `<div style="font-size:3rem">🚀💳</div><p>Your fleet ran trade routes for <b>${G.time(away)}</b>.</p><p style="font-size:1.4rem"><b>💳 ${G.fmt(got)}</b></p>`,
+    [{ label: "Collect", onClick: () => { S.cr += got; } }, { label: "2× · 15 💎", cls: "gem", onClick: () => { if (S.gems >= 15) { S.gems -= 15; S.cr += got * 2; } else S.cr += got; } }]);
+} else if (!S.trips) {
+  G.modal("Star Hauler", `<div style="font-size:3rem">🛰️ 🚀 🪐</div><p>One ship. One route. A galaxy of opportunity.</p><p>Your ship is already hauling iron from <b>Dustbowl</b>. Buy more ships, <b>scout</b> new worlds, recruit crew, and fight off pirates when the alarm sounds.</p>`, [{ label: "Launch" }]);
+}
+G.autosave(KEY, () => S);
+// ---------- 3D view ----------
+let view3d = false;
+function start3d() {
+  Star3D.init(document.getElementById("s3d"), document.getElementById("plabels"), HOME, PLANETS);
+  Star3D.onPick = planetInfo;
+  // Tap a passing comet or a drifting salvage crate for a bonus.
+  Star3D.onBonus = (kind, x, y) => {
+    G.sfx("rare");
+    if (kind === "comet") { const c = Math.ceil(incomeRate() * 45 + 80 * galaxyMult()); S.cr += c; G.float(x, y, "☄️ +" + G.fmt(c)); G.toast(`☄️ Comet ice harvested! +💳${G.fmt(c)}`); }
+    else if (Math.random() < 0.35) { const g = 3 + (Math.random() * 5 | 0); S.gems += g; G.float(x, y, `+${g} 💎`); G.toast(`📦 Salvage crate: <b>${g} 💎</b>`); }
+    else { const c = Math.ceil(incomeRate() * 30 + 60 * galaxyMult()); S.cr += c; G.float(x, y, "📦 +" + G.fmt(c)); G.toast(`📦 Salvage crate: +💳${G.fmt(c)}`); }
+    hud();
+  };
+  view3d = true; document.body.classList.add("s3d"); drawMap();
+}
+if (window.Star3D) start3d(); else addEventListener("star3d-ready", start3d, { once: true });
+syncShips(); drawMap(); scoutUi(); render(); requestAnimationFrame(frame);
+</script>
+</body>
+</html>

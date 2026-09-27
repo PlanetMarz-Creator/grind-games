@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grind Games</title>
+<meta name="description" content="Six free-to-play games: dig, dive, slay, merge, haul, and a 3D assassin story.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;800;900&family=Lilita+One&family=Chakra+Petch:wght@700&family=Cinzel:wght@900&family=Baloo+2:wght@800&family=Audiowide&family=Shippori+Mincho+B1:wght@800&display=swap">
+<style>
+  /* Hub — a store shelf: inky backdrop, huge key art per game, each card borrowing its game's identity. */
+  :root { --bg: #0c0c12; --ink: #f5f3ff; --mut: #9a98ad; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg) radial-gradient(ellipse at 50% -20%, #2b1d5c, transparent 60%); color: var(--ink); font: 500 16px/1.45 "Rubik", system-ui, sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 48px 16px 64px; }
+  .eyebrow { font-size: .78rem; letter-spacing: .2em; text-transform: uppercase; color: var(--mut); font-weight: 800; }
+  h1 { font: 900 clamp(2.8rem, 9vw, 5.4rem)/.9 "Rubik", sans-serif; margin: 10px 0 14px; letter-spacing: -.03em;
+       background: linear-gradient(90deg, #ffd23f, #ff8a1f 40%, #ff4fd8 75%, #3ef2ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lede { color: #c9c6da; font-size: 1.1rem; max-width: 620px; margin: 0 0 36px; }
+  .games { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  @media (max-width: 400px) { .games { grid-template-columns: 1fr; } }
+  .g { position: relative; display: flex; flex-direction: column; min-height: 330px; border-radius: 26px; overflow: hidden; text-decoration: none; color: var(--c); background: var(--b); transition: transform .2s ease; }
+  .g:hover { transform: translateY(-5px) scale(1.01); }
+  .g:focus-visible { outline: 3px solid #ffd23f; outline-offset: 4px; }
+  .art { flex: 1; display: grid; place-items: center; font-size: 5.5rem; position: relative; }
+  .art span { filter: drop-shadow(0 10px 18px rgba(0,0,0,.4)); animation: float 3s ease-in-out infinite; animation-delay: var(--d); }
+  @keyframes float { 50% { transform: translateY(-8px) rotate(-4deg); } }
+  .meta { padding: 18px 20px 20px; background: linear-gradient(transparent, rgba(0,0,0,.35)); }
+  .meta h2 { margin: 0 0 4px; font-size: 1.9rem; line-height: 1; }
+  .meta p { margin: 0 0 12px; font-size: .93rem; opacity: .9; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tags span { font: 800 .68rem "Rubik"; letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,.18); }
+  .play { position: absolute; top: 16px; right: 16px; font: 800 .8rem "Rubik"; background: rgba(0,0,0,.35); color: #fff; padding: 6px 12px; border-radius: 999px; }
+  .loop { margin-top: 48px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .loop div { border: 1px solid #25243a; border-radius: 16px; padding: 14px; background: #14131f; }
+  .loop b { display: block; font-size: 1rem; margin-bottom: 2px; } .loop small { color: var(--mut); }
+  .foot { margin-top: 40px; color: var(--mut); font-size: .85rem; }
+  @media (prefers-reduced-motion: reduce) { .art span { animation: none; } .g { transition: none; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="eyebrow">6 games · 1 obsession</div>
+  <h1>Grind Games</h1>
+  <p class="lede">Six free-to-play games. Each has its own core loop, its own world and its own reasons to come back tomorrow. Tap to play, no download.</p>
+  <section class="games" id="games"></section>
+  <section class="loop">
+    <div><b>⚡ Instant loop</b><small>Tap, dive, merge or haul. Something good happens every few seconds.</small></div>
+    <div><b>📈 Long grind</b><small>Upgrades, allies and abilities that compound into huge numbers.</small></div>
+    <div><b>🗺️ Discovery</b><small>New zones, enemies, friends and collectibles hidden behind every milestone.</small></div>
+    <div><b>🔁 Prestige</b><small>Escape, rebirth or warp: reset for permanent multipliers and go further.</small></div>
+    <div><b>🌙 Come back</b><small>Offline earnings, daily streaks and timers pull players back each day.</small></div>
+  </section>
+  <p class="foot">Store purchases are demo-only in this web build. No money is charged.</p>
+</main>
+<script>
+// [dir, key art, name, pitch, tags, bg, fg, heading font]
+const GAMES = [
+  ["digout", "⛏️", "Dig Out", "Tunnel out of six prisons. Recruit cellmates, dodge the guard, dig up legendary finds, break the Warden's vault door.", ["Tap + idle", "Prestige", "Collection"], "linear-gradient(160deg,#6b4630,#3b2416)", "#fff3e0", '400 2.2rem "Lilita One"'],
+  ["abyssdiver", "🐙", "Abyss Diver", "Short, tense dives into an 11km ocean. Loot, dodge, rescue ocean friends, and defeat the guardians of each zone.", ["Roguelite runs", "Boss fights", "Bestiary"], "radial-gradient(ellipse at top,#0d4a5c,#020b12 75%)", "#3ef2ff", '700 1.9rem "Chakra Petch"'],
+  ["slimeslayer", "⚔️", "Slime Slayer", "Tap-and-idle RPG across seven lands. Recruit ten legendary allies, choose your path, loot mythic gear, rebirth stronger.", ["RPG", "Party", "Rebirth"], "linear-gradient(160deg,#3d2566,#1a1030)", "#f2c14e", '900 1.8rem "Cinzel"'],
+  ["mergekingdom", "🏰", "Merge Kingdom", "Merge tents into metropolises, sprouts into Eden. Defend against raiders, complete quests, build Wonders.", ["Merge", "Quests", "Base building"], "linear-gradient(#cdeefd 0 40%,#7cc36a 40%,#4f9a43)", "#3a2f1e", '800 2rem "Baloo 2"'],
+  ["hollowpine", "🗡️", "Hollow Pine", "A 3D assassin story. Grow from a boy in a hidden village into a man, master five arts, beat five bosses, choose your ending.", ["Action RPG", "Story", "Stealth"], "linear-gradient(170deg,#2a0c10,#0b0908 70%)", "#efe7d6", '800 2rem "Shippori Mincho B1"'],
+  ["starhauler", "🚀", "Star Hauler", "Run a trade fleet across the galaxy. Scout new worlds, recruit alien crew, blast pirates, break blockades, warp onward.", ["Tycoon", "Exploration", "Space combat"], "linear-gradient(180deg,#121a33 55%,#e8612c 55% 70%,#f2b134 70%)", "#f4e9d8", '400 1.8rem "Audiowide"'],
+];
+document.getElementById("games").innerHTML = GAMES.map(([dir, art, name, pitch, tags, bg, fg, font], i) =>
+  `<a class="g" href="${dir}/index.html" style="--b:${bg};--c:${fg}"><span class="play">▶ PLAY</span>
+    <div class="art"><span style="--d:${i * .4}s">${art}</span></div>
+    <div class="meta"><h2 style="font:${font}">${name}</h2><p>${pitch}</p><div class="tags">${tags.map(t => `<span>${t}</span>`).join("")}</div></div></a>`).join("");
+</script>
+</body>
+</html>

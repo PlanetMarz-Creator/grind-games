@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Dig Out</title>
+<meta name="description" content="Tap to tunnel out of prison. Recruit cellmates, dodge the guards, dig up secrets, escape, repeat.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap">
+<style>
+  /* Dig Out — chunky cartoon dirt: warm browns, prison orange, fat outlined type, squishy buttons. */
+  :root { --dirt: #3b2416; --dirt2: #5a3825; --cream: #fff3e0; --orange: #ff8a1f; --orange-d: #c95f00; --gold: #ffd23f; --red: #ff4d4d; --ink: #2a170c; --gem: #4fd1ff; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--dirt) radial-gradient(circle at 20% 10%, #6b4630 0, transparent 40%); color: var(--cream); font: 800 15px/1.3 "Nunito", system-ui, sans-serif; overscroll-behavior: none; }
+  .game { max-width: 480px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; }
+  h1, h2, .big, .gx-title, .tabs button, .pill b { font-family: "Lilita One", "Arial Black", sans-serif; font-weight: 400; letter-spacing: .02em; }
+  .top { display: flex; gap: 6px; padding: 10px 10px 6px; align-items: center; }
+  .pill { background: rgba(0,0,0,.35); border: 2px solid rgba(255,255,255,.12); border-radius: 999px; padding: 4px 10px 4px 6px; display: flex; align-items: center; gap: 6px; font-size: .95rem; white-space: nowrap; }
+  .pill b { font-size: 1.1rem; }
+  .pill .ic { font-size: 1.2rem; }
+  .spacer { flex: 1; }
+  .iconbtn { width: 38px; height: 38px; border-radius: 12px; border: 0; background: rgba(0,0,0,.35); color: var(--cream); font-size: 1.1rem; cursor: pointer; }
+  .lvl { padding: 0 10px 6px; display: flex; gap: 8px; align-items: center; font-size: .8rem; }
+  .bar { flex: 1; height: 12px; background: rgba(0,0,0,.4); border-radius: 999px; overflow: hidden; border: 2px solid rgba(0,0,0,.3); }
+  .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(var(--gold), #f0a500); border-radius: 999px; transition: width .2s; }
+  .stage { position: relative; margin: 0 10px; border-radius: 22px; overflow: hidden; border: 4px solid var(--ink); box-shadow: 0 6px 0 var(--ink); touch-action: manipulation; cursor: pointer; }
+  canvas { display: block; width: 100%; aspect-ratio: 44 / 50; }
+  .hp { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: 46%; height: 12px; border-radius: 999px; background: rgba(0,0,0,.55); border: 2px solid var(--ink); overflow: hidden; pointer-events: none; }
+  .hp i { display: block; height: 100%; background: linear-gradient(#a6f07f, #5cc23a); transition: width .06s; }
+  .hp i.door { background: linear-gradient(#ff8a8a, var(--red)); }
+  .depth { position: absolute; left: 10px; top: 58px; font-family: "Lilita One", sans-serif; font-size: 1.9rem; text-shadow: 0 3px 0 var(--ink); pointer-events: none; }
+  .depth small { display: block; font-family: "Nunito"; font-size: .75rem; opacity: .85; text-shadow: 0 1px 0 var(--ink); }
+  .warn { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); background: var(--red); color: #fff; font-family: "Lilita One"; font-size: 1.3rem; padding: 8px 16px;
+          border-radius: 14px; border: 3px solid var(--ink); text-align: center; pointer-events: none; animation: pulse .4s infinite alternate; white-space: nowrap; }
+  @keyframes pulse { to { transform: translate(-50%, -50%) scale(1.08); } }
+  .rush { position: absolute; top: 58px; right: 10px; background: linear-gradient(90deg, #ffd23f, #fff2a8, #ffd23f); background-size: 200% 100%; color: var(--ink); font: 400 1rem "Lilita One"; padding: 4px 12px; border-radius: 12px; border: 3px solid var(--ink); animation: shine 1s linear infinite; pointer-events: none; }
+  @keyframes shine { to { background-position: -200% 0; } }
+  .noise { margin: 10px 10px 0; display: flex; gap: 8px; align-items: center; font-size: .8rem; }
+  .noise .bar > i { background: linear-gradient(90deg, #7ddc5a, var(--gold), var(--red)); background-size: 300% 100%; }
+  .abilities { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px; }
+  .ab { position: relative; border: 3px solid var(--ink); border-radius: 16px; background: var(--orange); color: var(--ink); font: 900 .72rem "Nunito", sans-serif; padding: 6px 2px 5px; cursor: pointer;
+        box-shadow: 0 4px 0 var(--ink); overflow: hidden; min-height: 62px; }
+  .ab .e { display: block; font-size: 1.5rem; line-height: 1.1; }
+  .ab:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+  .ab:disabled { background: #8a6b55; cursor: default; }
+  .ab .cd { position: absolute; inset: auto 0 0 0; background: rgba(0,0,0,.45); height: 0; }
+  .ab.locked { filter: grayscale(1); opacity: .55; }
+  .ab.active { background: var(--gold); animation: glow .5s infinite alternate; }
+  @keyframes glow { to { box-shadow: 0 4px 0 var(--ink), 0 0 16px var(--gold); } }
+  .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 0 10px; }
+  .tabs button { border: 0; border-radius: 14px 14px 0 0; background: rgba(0,0,0,.3); color: var(--cream); font-size: .9rem; padding: 10px 2px; cursor: pointer; position: relative; }
+  .tabs button[aria-selected="true"] { background: var(--cream); color: var(--ink); }
+  .tabs button .dot { position: absolute; top: 4px; right: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--red); border: 2px solid var(--ink); }
+  .panel { background: var(--cream); color: var(--ink); margin: 0 10px 16px; border-radius: 0 0 20px 20px; padding: 10px; min-height: 240px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 14px; background: #fff; border: 2px solid #f0dcc0; margin-bottom: 8px; }
+  .row .e { font-size: 1.9rem; width: 44px; text-align: center; }
+  .row .info { flex: 1; min-width: 0; }
+  .row .info b { font-family: "Lilita One"; font-weight: 400; font-size: 1.05rem; }
+  .row .info small { display: block; color: #8a6b55; font-size: .78rem; }
+  .buy { border: 3px solid var(--ink); border-radius: 12px; background: #7ddc5a; color: var(--ink); font: 900 .85rem "Nunito"; padding: 6px 10px; min-width: 84px; cursor: pointer; box-shadow: 0 3px 0 var(--ink); }
+  .buy:disabled { background: #d8c8b4; box-shadow: none; cursor: default; opacity: .8; }
+  .buy:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  .buy.gem { background: var(--gem); }
+  .book { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .item { aspect-ratio: 1; border-radius: 14px; display: grid; place-items: center; font-size: 1.8rem; background: #e9d8c1; border: 3px solid #d4bc9c; position: relative; }
+  .item.found.common { background: #fff; border-color: #b9b9b9; } .item.found.rare { background: #e3f3ff; border-color: #3aa0ff; }
+  .item.found.epic { background: #f3e6ff; border-color: #a44dff; } .item.found.legendary { background: #fff6d6; border-color: #ffb300; box-shadow: 0 0 12px #ffcf4d; }
+  .item:not(.found) { filter: brightness(0); opacity: .25; }
+  .note { font-size: .82rem; color: #8a6b55; margin: 4px 2px 10px; }
+  .prison { border: 3px solid var(--ink); border-radius: 16px; padding: 12px; margin-bottom: 8px; background: #fff; }
+  .prison.cur { background: #fff1d6; }
+  .prison.lock { opacity: .5; }
+  .gx-toasts { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 60; display: grid; gap: 6px; width: min(92vw, 420px); pointer-events: none; }
+  .gx-toast { background: var(--ink); color: var(--cream); border: 3px solid var(--gold); border-radius: 14px; padding: 8px 12px; text-align: center; animation: drop .25s ease-out; }
+  .gx-toast.out { opacity: 0; transition: opacity .4s; }
+  @keyframes drop { from { transform: translateY(-20px); opacity: 0; } }
+  .gx-backdrop { position: fixed; inset: 0; background: rgba(20,10,4,.7); display: grid; place-items: center; z-index: 70; padding: 16px; }
+  .gx-modal { background: var(--cream); color: var(--ink); border: 4px solid var(--ink); border-radius: 24px; padding: 20px; width: min(100%, 380px); text-align: center; box-shadow: 0 8px 0 var(--ink); animation: pop .25s ease-out; }
+  @keyframes pop { from { transform: scale(.8); opacity: 0; } }
+  .gx-title { margin: 0 0 8px; font-size: 1.7rem; }
+  .gx-body p { margin: 6px 0; }
+  .gx-demo { font-size: .75rem; color: #8a6b55; }
+  .gx-actions { display: flex; gap: 8px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+  .gx-btn { border: 3px solid var(--ink); border-radius: 14px; background: var(--orange); color: var(--ink); font: 900 1rem "Nunito"; padding: 10px 18px; cursor: pointer; box-shadow: 0 4px 0 var(--ink); }
+  .gx-btn.ghost { background: #fff; } .gx-btn.buy { background: #7ddc5a; } .gx-btn.gem { background: var(--gem); }
+  .gx-btn:disabled { opacity: .5; }
+  .gx-product { position: relative; display: flex; flex-direction: column; gap: 2px; background: #fff; border: 3px solid var(--ink); border-radius: 16px; padding: 12px; margin-bottom: 10px; }
+  .gx-product b { font-family: "Lilita One"; font-weight: 400; font-size: 1.15rem; }
+  .gx-product small { color: #8a6b55; margin-bottom: 6px; }
+  .gx-product.owned { opacity: .6; }
+  .gx-badge { position: absolute; top: -10px; right: 10px; background: var(--red); color: #fff; font-size: .7rem; padding: 2px 8px; border-radius: 999px; border: 2px solid var(--ink); }
+  .gx-float { position: fixed; pointer-events: none; z-index: 50; font: 400 1.3rem "Lilita One", sans-serif; color: var(--gold); text-shadow: 0 2px 0 var(--ink), 0 0 6px rgba(0,0,0,.4); animation: rise .9s ease-out forwards; transform: translate(-50%, -50%); }
+  .gx-float.crit { color: #fff; font-size: 1.7rem; } .gx-float.gem { color: var(--gem); }
+  @keyframes rise { to { transform: translate(-50%, -150%); opacity: 0; } }
+  .back { color: var(--cream); opacity: .7; font-size: .8rem; text-decoration: none; }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; } }
+</style>
+</head>
+<body>
+<div class="game">
+  <div class="top">
+    <a class="back" href="../index.html" aria-label="All games">◀</a>
+    <div class="pill"><span class="ic">🪙</span><b id="coins">0</b></div>
+    <div class="pill"><span class="ic">💎</span><b id="gems">0</b></div>
+    <div class="pill" title="Freedom Stars: each one multiplies everything by 1.15×"><span class="ic">⭐</span><b id="stars">0</b></div>
+    <span class="spacer"></span>
+    <button class="iconbtn" id="mute" aria-label="Toggle sound">🔊</button>
+  </div>
+  <div class="lvl"><span>LV <b id="level">1</b></span><div class="bar"><i id="xpbar"></i></div><span id="dps">0/s</span></div>
+
+  <div class="stage" id="stage">
+    <canvas id="c" aria-label="Tap to dig"></canvas>
+    <div class="hp"><i id="hpbar"></i></div>
+    <div class="depth"><span id="depth">0m</span><small id="goal"></small></div>
+    <div class="warn" id="warn" hidden>👮 GUARD! STOP DIGGING!</div>
+    <div class="rush" id="rush" hidden>✨ GOLD RUSH ×3 · <span id="rushT"></span> ✨</div>
+  </div>
+  <div class="noise"><span>🔊 Noise</span><div class="bar"><i id="noise"></i></div></div>
+
+  <div class="abilities" id="abilities"></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-t="tools">⛏️ Tools</button><button data-t="crew">👥 Crew</button><button data-t="book">📖 Finds</button><button data-t="escape">🗝️ Escape</button><button data-t="shop">💎 Shop</button>
+  </nav>
+  <section class="panel" id="panel"></section>
+</div>
+<script type="module" src="scene3d.js"></script>
+<script src="../shared/engine.js"></script>
+<script>
+const G = Grind, KEY = "digout-v1";
+const PRISONS = [
+  { name: "County Jail", e: "🏚️", goal: 50, mult: 1, layers: ["#8d8d8d", "#7a4a2a", "#a0622d", "#5b3a1f"] },
+  { name: "State Pen", e: "🏢", goal: 100, mult: 30, layers: ["#6d7580", "#5a3825", "#3f5b3a", "#4a4a55"] },
+  { name: "Island Fortress", e: "🏝️", goal: 160, mult: 1e3, layers: ["#c9b27c", "#8c6e45", "#2e5f6b", "#1f3a4a"] },
+  { name: "Arctic Supermax", e: "🧊", goal: 230, mult: 5e4, layers: ["#dbe9f4", "#8fb3cf", "#4f6f8f", "#2c3e57"] },
+  { name: "Volcano Vault", e: "🌋", goal: 310, mult: 3e6, layers: ["#4a2a2a", "#6b2b1d", "#9c3b18", "#d9480f"] },
+  { name: "Moon Prison", e: "🌕", goal: 400, mult: 2e8, layers: ["#b8b8c8", "#8a8aa0", "#5a5a78", "#2a2a44"] },
+];
+const TOOLS = ["🥄 Spoon", "🍴 Fork", "🔧 Trowel", "🪏 Shovel", "⛏️ Pickaxe", "🔨 Jackhammer", "🛠️ Drill", "🔫 Laser Cutter", "☄️ Plasma Bore", "🌀 Void Spoon"];
+const CREW = [
+  { id: "rat", e: "🐀", name: "Rat Pal", cost: 20, dps: 0.4, desc: "Small, loyal, surprisingly strong teeth." },
+  { id: "old", e: "👴", name: "Old Timer", cost: 220, dps: 3.5, desc: "Been digging since '79." },
+  { id: "mo", e: "💪", name: "Big Mo", cost: 2600, dps: 30, desc: "Bends bars. Moves boulders." },
+  { id: "mole", e: "🦫", name: "Mole Man", cost: 36000, dps: 260, desc: "Nobody knows where he came from." },
+  { id: "eng", e: "👷", name: "The Engineer", cost: 5.5e5, dps: 2400, desc: "Blueprints for everything." },
+  { id: "bot", e: "🤖", name: "Drill Bot 3000", cost: 9e6, dps: 23000, desc: "Smuggled in, one piece at a time." },
+  { id: "ghost", e: "👻", name: "The Ghost", cost: 1.6e8, dps: 2.3e5, desc: "Walks through walls. Literally." },
+  { id: "tbm", e: "🚇", name: "Tunnel Borer", cost: 3e9, dps: 2.2e6, desc: "Stolen from a subway project." },
+  { id: "time", e: "🧙", name: "Time Traveler", cost: 6e10, dps: 2e7, desc: "Already escaped. Came back to help." },
+  { id: "hole", e: "🕳️", name: "Pocket Black Hole", cost: 1.2e12, dps: 1.9e8, desc: "Please don't drop it." },
+];
+const ITEMS = [
+  ["🦴", "Old Bone", "common"], ["🪙", "Rusty Coin", "common"], ["🔑", "Bent Key", "common"], ["🧦", "Lost Sock", "common"], ["🥫", "Tin Can", "common"], ["🪨", "Weird Rock", "common"],
+  ["🗺️", "Torn Map", "rare"], ["📻", "Contraband Radio", "rare"], ["💍", "Gold Ring", "rare"], ["🧭", "Compass", "rare"], ["📜", "Secret Letter", "rare"],
+  ["🏺", "Ancient Urn", "epic"], ["🦕", "Dino Skull", "epic"], ["💰", "Stolen Loot", "epic"], ["🔮", "Crystal Ball", "epic"],
+  ["👑", "Lost Crown", "legendary"], ["🛸", "Crashed UFO Part", "legendary"], ["🐉", "Dragon Egg", "legendary"],
+];
+const RARITY = { common: [60, 0.02, "#b9b9b9"], rare: [28, 0.05, "#3aa0ff"], epic: [10, 0.12, "#a44dff"], legendary: [2, 0.3, "#ffb300"] };
+const ABILITIES = [
+  { id: "silent", e: "🤫", name: "Silent", lvl: 2, cd: 45, dur: 20, desc: "No noise for 20s" },
+  { id: "frenzy", e: "🔥", name: "Frenzy", lvl: 4, cd: 60, dur: 10, desc: "5× tap power for 10s" },
+  { id: "dyn", e: "🧨", name: "Dynamite", lvl: 7, cd: 90, dur: 0, desc: "Blast through 5 blocks" },
+  { id: "auto", e: "🤖", name: "Auto-Dig", lvl: 11, cd: 120, dur: 15, desc: "12 taps/sec for 15s (silent)" },
+];
+const SKINS = [["orange", "#ff8a1f", 0, "Classic"], ["stripes", "#f2f2f2", 60, "Old School"], ["gold", "#ffd23f", 150, "Golden Boy"], ["neon", "#39ff88", 150, "Glow Up"], ["shadow", "#2d2d44", 250, "Shadow"]];
+
+const DEF = { coins: 0, gems: 25, stars: 0, prison: 0, depth: 0, hp: 0, maxHp: 0, tool: 0, crew: {}, level: 1, xp: 0, found: {}, runCoins: 0, blocks: 0,
+  skin: "orange", skins: { orange: true }, cds: {}, owned: {}, stats: { caught: 0, escapes: 0, taps: 0 }, maxPrison: 0 };
+const S = G.load(KEY, DEF);
+
+// ---------- derived numbers ----------
+const P = () => PRISONS[Math.min(S.prison, PRISONS.length - 1)];
+const legend = () => Math.max(0, S.prison - (PRISONS.length - 1)); // endless loops past the Moon
+const findBonus = () => Object.keys(S.found).reduce((a, k) => a + RARITY[ITEMS.find(i => i[1] === k)[2]][1], 0);
+const starMult = () => Math.pow(1.15, S.stars);
+const mult = () => starMult() * (1 + findBonus()) * (S.owned.starter ? 2 : 1);
+const tapPower = () => Math.floor((1 + S.tool * 1.6) * Math.pow(2, Math.floor(S.tool / 10))) * starMult() * (active("frenzy") ? 5 : 1);
+const crewDps = (c) => c.dps * (S.crew[c.id] || 0) * Math.pow(2, [10, 25, 50, 100].filter(m => (S.crew[c.id] || 0) >= m).length);
+const dps = () => CREW.reduce((a, c) => a + crewDps(c), 0) * starMult();
+const blockHp = (d) => Math.ceil(4 * Math.pow(1.04, d) * P().mult * Math.pow(50, legend()));
+const toolCost = () => G.cost(12, 1.32, S.tool);
+const crewCost = (c) => G.cost(c.cost, 1.15, S.crew[c.id] || 0);
+const xpNeed = () => Math.ceil(8 * Math.pow(1.28, S.level));
+const goal = () => P().goal + legend() * 80;
+const skinColor = () => SKINS.find(s => s[0] === S.skin)[1];
+
+// ---------- runtime state ----------
+let special = null, rushT = 0, rushNext = 70 + Math.random() * 60; // special block kind and Gold Rush timers
+let noise = 0, guard = { state: "idle", t: 12 + Math.random() * 10 }, stun = 0, door = null, until = {}, swing = 0, shakeT = 0, autoAcc = 0;
+const active = (id) => (until[id] || 0) > performance.now();
+if (!S.maxHp) newBlock();
+
+function newBlock() {
+  if (S.depth === goal() - 1) {
+    door = { t: 30 }; S.maxHp = S.hp = blockHp(goal()) * 10;
+    G.toast("🚪 <b>THE WARDEN'S VAULT DOOR!</b> Break it in 30s!", 3000); G.sfx("bad");
+  } else {
+    door = null; S.maxHp = S.hp = blockHp(S.depth);
+    // Occasional special blocks: a buried chest (tougher, big payout) or a gold vein.
+    const r = Math.random(); special = S.depth > 2 && r < 0.05 ? "chest" : r < 0.1 ? "gold" : null;
+    if (special === "chest") { S.maxHp = S.hp = Math.ceil(S.hp * 2.5); G.toast("🧰 A <b>buried chest</b>! Dig it out!"); }
+  }
+}
+
+// ---------- digging ----------
+function damage(n, fromTap, x, y) {
+  if (stun > 0 || door === "escaped") return;
+  let breaks = 0;
+  while (n > 0 && breaks < 25) {
+    const dealt = Math.min(n, S.hp); S.hp -= dealt; n -= dealt;
+    if (S.hp <= 0) { breakBlock(); breaks++; if (door === "escaped") return; } else break;
+  }
+  if (fromTap && x != null) G.float(x, y, "-" + G.fmt(fromTap));
+}
+function breakBlock() {
+  if (door) { door = "escaped"; escape(); return; }
+  const bonus = (special === "chest" ? 8 / 2.5 : special === "gold" ? 4 : 1) * (rushT > 0 ? 3 : 1);
+  const reward = Math.ceil(S.maxHp * 0.55 * mult() * bonus);
+  if (special === "chest") { const gem = Math.random() < 0.5 ? 2 + (Math.random() * 4 | 0) : 0; S.gems += gem; G.toast(`🧰 Chest cracked! 🪙${G.fmt(reward)}${gem ? ` + ${gem} 💎` : ""}`); G.sfx("rare"); }
+  if (special === "gold") G.float(innerWidth / 2, innerHeight * 0.4, "GOLD VEIN ×4", "crit");
+  S.coins += reward; S.runCoins += reward; S.blocks++; S.depth++;
+  gainXp(1 + S.prison);
+  burst(); G.sfx("coin");
+  if (Math.random() < 0.045) discover();
+  if (S.depth === 1) G.achieve(S, "first", "First Scratch", 10, g => S.gems += g);
+  if (S.depth === 25) G.achieve(S, "d25", "Halfway Down", 20, g => S.gems += g);
+  if (S.blocks >= 1000) G.achieve(S, "b1k", "Human Drill: 1,000 blocks", 50, g => S.gems += g);
+  newBlock();
+}
+function gainXp(n) {
+  S.xp += n;
+  while (S.xp >= xpNeed()) {
+    S.xp -= xpNeed(); S.level++; S.gems += 5; G.sfx("up");
+    const unlock = ABILITIES.find(a => a.lvl === S.level);
+    G.toast(`⬆️ <b>LEVEL ${S.level}!</b> +5 💎${unlock ? `<br>New ability: ${unlock.e} <b>${unlock.name}</b>` : ""}`, 2800);
+    renderAbilities();
+  }
+}
+function discover() {
+  const roll = Math.random() * 100; let acc = 0, rarity = "common";
+  for (const [r, [w]] of Object.entries(RARITY)) { acc += w; if (roll < acc) { rarity = r; break; } }
+  const pool = ITEMS.filter(i => i[2] === rarity), it = pool[Math.random() * pool.length | 0];
+  if (S.found[it[1]]) { const bonus = S.maxHp * 5 * mult(); S.coins += bonus; G.toast(`${it[0]} Another ${it[1]}. Sold for 🪙${G.fmt(bonus)}`); return; }
+  S.found[it[1]] = Date.now(); G.sfx("rare");
+  G.modal(`${rarity === "legendary" ? "🌟 LEGENDARY FIND! 🌟" : "You found something!"}`,
+    `<div style="font-size:4rem">${it[0]}</div><p><b>${it[1]}</b></p><p style="color:${RARITY[rarity][2]};text-transform:uppercase">${rarity}</p>
+     <p>Permanent +${RARITY[rarity][1] * 100}% coins</p><p class="gx-demo">${Object.keys(S.found).length} / ${ITEMS.length} discovered</p>`, [{ label: "Sweet!" }]);
+  if (Object.keys(S.found).length === ITEMS.length) G.achieve(S, "allfinds", "Master Collector", 500, g => S.gems += g);
+  render();
+}
+
+// ---------- guard / noise ----------
+function makeNoise(n) { if (active("silent") || active("auto")) return; noise = Math.min(100, noise + n * (guard.state === "patrol" ? 12 : 1)); if (noise >= 100) caught(); }
+function caught() {
+  noise = 0; guard = { state: "idle", t: 25 };
+  const lose = Math.floor(S.coins * 0.25), back = Math.min(S.depth, 3);
+  G.sfx("bad"); G.shake(document.getElementById("stage"), 10); S.stats.caught++;
+  G.modal("🚨 CAUGHT! 🚨", `<p>The guard heard you!</p><p>You'll lose <b>🪙${G.fmt(lose)}</b> and get dragged back <b>${back}m</b>.</p>`, [
+    { label: "Accept fate", cls: "ghost", onClick: () => { S.coins -= lose; S.depth -= back; stun = 3; newBlock(); render(); } },
+    { label: "Bribe 20 💎", cls: "gem", onClick: (close) => { if (S.gems >= 20) { S.gems -= 20; G.toast("🤝 The guard looks the other way…"); render(); } else { S.coins -= lose; S.depth -= back; stun = 3; newBlock(); G.toast("Not enough gems!"); } } },
+  ]);
+}
+
+// ---------- escape (prestige) ----------
+function escape() {
+  const earned = 2 + S.prison * 2 + Math.floor(Math.log10(Math.max(10, S.runCoins)));
+  G.sfx("rare"); S.stats.escapes++;
+  G.modal(`🎉 YOU ESCAPED ${P().name.toUpperCase()}! 🎉`,
+    `<div style="font-size:3.5rem">🏃💨</div><p>You earned <b>⭐ ${earned} Freedom Stars</b>.</p><p>Each star multiplies everything by <b>1.15×</b>, forever. You'll be <b>${G.fmt(Math.pow(1.15, S.stars + earned))}×</b> stronger.</p>
+     <p>But freedom doesn't last… you've been caught and sent to <b>${(PRISONS[S.prison + 1] || { name: "a tougher Moon Prison" }).name}</b>.</p>`,
+    [{ label: "Next prison →", cls: "buy", onClick: () => {
+      S.stars += earned; S.prison++; S.maxPrison = Math.max(S.maxPrison, S.prison);
+      Object.assign(S, { coins: 0, depth: 0, tool: 0, crew: {}, runCoins: 0 }); door = null; noise = 0; newBlock();
+      G.achieve(S, "esc" + Math.min(S.prison, 6), S.prison === 1 ? "Jailbreak!" : `Escape artist #${S.prison}`, 50 * S.prison, g => S.gems += g);
+      G.save(KEY, S); render(); renderAbilities();
+    } }]);
+}
+
+// ---------- abilities ----------
+function useAbility(a) {
+  if (S.level < a.lvl || (S.cds[a.id] || 0) > Date.now()) return;
+  S.cds[a.id] = Date.now() + a.cd * 1000; G.sfx("up");
+  if (a.id === "dyn") { let n = 5; while (n-- > 0 && door !== "escaped") damage(S.hp, 0); shakeT = 0.4; burst(40); }
+  else until[a.id] = performance.now() + a.dur * 1000;
+  renderAbilities();
+}
+function renderAbilities() {
+  const box = document.getElementById("abilities"); box.innerHTML = "";
+  ABILITIES.forEach(a => {
+    const b = G.el("button", "ab" + (S.level < a.lvl ? " locked" : ""), `<span class="e">${S.level < a.lvl ? "🔒" : a.e}</span>${S.level < a.lvl ? "LV " + a.lvl : a.name}<span class="cd"></span>`);
+    b.title = a.desc; b.dataset.id = a.id; b.onclick = () => useAbility(a); box.appendChild(b);
+  });
+}
+function tickAbilities() {
+  document.querySelectorAll(".ab").forEach(b => {
+    const a = ABILITIES.find(x => x.id === b.dataset.id); if (S.level < a.lvl) return;
+    const left = ((S.cds[a.id] || 0) - Date.now()) / 1000;
+    b.classList.toggle("active", active(a.id));
+    b.disabled = left > 0 && !active(a.id);
+    b.querySelector(".cd").style.height = left > 0 ? Math.min(100, left / a.cd * 100) + "%" : "0";
+  });
+}
+
+// ---------- 3D view (scene3d.js draws; this passes it the game state) ----------
+let hitT = 0;
+function layerColor(d) { const L = P().layers; return L[Math.min(L.length - 1, Math.floor(d / goal() * L.length))]; }
+function burst(n = 14) { if (window.Scene3D) Scene3D.burst(layerColor(S.depth), n); }
+const view3d = {
+  state: () => ({ special, rush: rushT > 0, goal: goal(), depth: S.depth, prison: S.prison, frac: Math.max(0, S.hp / S.maxHp), door: !!door && door !== "escaped", layerColor, swing, hitT,
+    stun, frenzy: active("frenzy"), skinColor: skinColor(), shake: shakeT, guard: guard.state, guardT: guard.t }),
+};
+function startView() { Scene3D.init(document.getElementById("c"), view3d); }
+if (window.Scene3D) startView(); else addEventListener("scene3d-ready", startView, { once: true });
+function draw(t, dt) {
+  if (window.Scene3D) Scene3D.draw(t, dt);
+  const bar = document.getElementById("hpbar"); bar.style.width = Math.max(0, S.hp / S.maxHp * 100) + "%"; bar.classList.toggle("door", !!door && door !== "escaped");
+}
+
+// ---------- input ----------
+const stage = document.getElementById("stage");
+stage.addEventListener("pointerdown", (e) => {
+  if (stun > 0) return;
+  const p = tapPower(); swing = 1; hitT = 0.12; S.stats.taps++;
+  damage(p, p, e.clientX, e.clientY - 20); makeNoise(2.2); G.sfx("tap");
+});
+addEventListener("keydown", (e) => { if (e.code === "Space" && !document.querySelector(".gx-backdrop")) { e.preventDefault(); const r = stage.getBoundingClientRect(); stage.dispatchEvent(new PointerEvent("pointerdown", { clientX: r.left + r.width / 2, clientY: r.top + r.height * .75 })); } });
+document.getElementById("mute").onclick = (e) => { G.muted = !G.muted; e.target.textContent = G.muted ? "🔇" : "🔊"; };
+
+// ---------- loop ----------
+let last = performance.now(), uiT = 0;
+function loop(t) {
+  const dt = Math.min(0.1, (t - last) / 1000); last = t;
+  // Gold Rush: a random 12s event where every block pays triple.
+  if (rushT > 0) { rushT -= dt; if (rushT <= 0) { document.getElementById("rush").hidden = true; rushNext = 80 + Math.random() * 70; } }
+  else if ((rushNext -= dt) <= 0 && !door) { rushT = 12; document.getElementById("rush").hidden = false; G.sfx("rare"); }
+  if (rushT > 0) document.getElementById("rushT").textContent = Math.ceil(rushT) + "s";
+  if (stun > 0) stun -= dt;
+  const d = dps(); if (d > 0 && stun <= 0) damage(d * dt, 0);
+  if (active("auto")) { autoAcc += dt * 12; while (autoAcc >= 1) { autoAcc--; damage(tapPower(), 0); swing = 1; } }
+  noise = Math.max(0, noise - dt * 9);
+  guard.t -= dt;
+  if (guard.state === "idle" && guard.t <= 0) { guard = { state: "warn", t: 2 }; G.sfx("bad"); }
+  else if (guard.state === "warn" && guard.t <= 0) guard = { state: "patrol", t: 4 + Math.random() * 2 };
+  else if (guard.state === "patrol" && guard.t <= 0) guard = { state: "idle", t: 18 + Math.random() * 22 };
+  if (door && door !== "escaped") { door.t -= dt; if (door.t <= 0) { S.hp = S.maxHp; door.t = 30; G.toast("⏱️ Too slow! The door resealed. Upgrade and try again!"); G.sfx("bad"); } }
+  swing = Math.max(0, swing - dt * 6); shakeT = Math.max(0, shakeT - dt);
+  hitT = Math.max(0, hitT - dt);
+  draw(t, dt);
+  uiT -= dt; if (uiT <= 0) { uiT = 0.2; hud(); }
+  requestAnimationFrame(loop);
+}
+
+// ---------- HUD & panels ----------
+function hud() {
+  document.getElementById("coins").textContent = G.fmt(S.coins);
+  document.getElementById("gems").textContent = G.fmt(S.gems);
+  document.getElementById("stars").textContent = S.stars;
+  document.getElementById("level").textContent = S.level;
+  document.getElementById("xpbar").style.width = (S.xp / xpNeed() * 100) + "%";
+  document.getElementById("dps").textContent = "⛏️ " + G.fmt(dps() * mult()) + "/s";
+  document.getElementById("depth").textContent = S.depth + "m";
+  document.getElementById("goal").textContent = door && door !== "escaped" ? `🚪 VAULT DOOR · ${Math.ceil(door.t)}s` : `${P().e} ${P().name}${legend() ? " +" + legend() : ""} · exit at ${goal()}m`;
+  document.getElementById("noise").style.width = noise + "%";
+  document.getElementById("noise").style.backgroundPosition = noise + "% 0";
+  const warn = document.getElementById("warn");
+  warn.hidden = guard.state === "idle";
+  warn.textContent = guard.state === "warn" ? "👮 GUARD COMING… GET READY!" : "👮 GUARD! STOP DIGGING!";
+  tickAbilities();
+  document.querySelectorAll(".panel .buy[data-cost]").forEach(b => b.disabled = S[b.dataset.cur || "coins"] < +b.dataset.cost);
+  const dot = document.querySelector('[data-t="shop"] .dot'); if (G.dailyDay(S) && !dot) document.querySelector('[data-t="shop"]').insertAdjacentHTML("beforeend", '<span class="dot"></span>');
+}
+let tab = "tools";
+function render() {
+  const el = document.getElementById("panel");
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.t === tab));
+  if (tab === "tools") {
+    const name = TOOLS[Math.min(TOOLS.length - 1, Math.floor(S.tool / 10))];
+    el.innerHTML = `<div class="row"><span class="e">${name.split(" ")[0]}</span><div class="info"><b>${name.slice(name.indexOf(" ") + 1)} · Lv ${S.tool + 1}</b>
+      <small>Tap power ${G.fmt(tapPower())}. Every 10 levels: new tool + 2× power!</small></div>
+      <button class="buy" data-cost="${toolCost()}" id="upTool">🪙${G.fmt(toolCost())}</button></div>
+      <p class="note">💡 Tapping makes noise. When the guard patrols, <b>stop</b> — or use 🤫 Silent.</p>
+      <h3 style="font-family:'Lilita One';font-weight:400;margin:10px 2px 6px">👕 Jumpsuits</h3>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">${SKINS.map(([id, col, price, n]) =>
+        `<button class="buy ${S.skins[id] ? "" : "gem"}" style="min-width:0;padding:6px 2px;${S.skin === id ? "outline:3px solid #ff8a1f" : ""}" data-skin="${id}" title="${n}">
+         <span style="display:block;width:22px;height:22px;border-radius:6px;margin:0 auto 2px;background:${col};border:2px solid #2a170c"></span>${S.skins[id] ? (S.skin === id ? "ON" : "Wear") : price + "💎"}</button>`).join("")}</div>`;
+    el.querySelector("#upTool").onclick = () => { const c = toolCost(); if (S.coins < c) return; S.coins -= c; S.tool++; G.sfx("up");
+      if (S.tool % 10 === 0) G.toast(`🎉 NEW TOOL: <b>${TOOLS[Math.min(TOOLS.length - 1, S.tool / 10)]}</b>`, 2600); render(); };
+    el.querySelectorAll("[data-skin]").forEach(b => b.onclick = () => {
+      const [id, , price] = SKINS.find(s => s[0] === b.dataset.skin);
+      if (!S.skins[id]) { if (S.gems < price) return G.toast("Not enough 💎 — visit the shop!"); S.gems -= price; S.skins[id] = true; G.sfx("rare"); }
+      S.skin = id; render();
+    });
+  }
+  if (tab === "crew") {
+    el.innerHTML = CREW.map((c, i) => {
+      const n = S.crew[c.id] || 0, visible = i === 0 || (S.crew[CREW[i - 1].id] || 0) > 0 || n > 0;
+      if (!visible) return `<div class="row" style="opacity:.5"><span class="e">❓</span><div class="info"><b>???</b><small>Hire a ${CREW[i - 1].name} to meet them.</small></div></div>`;
+      const next = [10, 25, 50, 100].find(m => n < m);
+      return `<div class="row"><span class="e">${c.e}</span><div class="info"><b>${c.name} ×${n}</b><small>${c.desc}<br>${G.fmt(crewDps(c) * mult())}/s${next ? ` · 2× at ${next}` : ""}</small></div>
+        <button class="buy" data-cost="${crewCost(c)}" data-id="${c.id}">🪙${G.fmt(crewCost(c))}</button></div>`;
+    }).join("") + `<p class="note">Your crew digs quietly, even while you're away.</p>`;
+    el.querySelectorAll("[data-id]").forEach(b => b.onclick = () => {
+      const c = CREW.find(x => x.id === b.dataset.id), cost = crewCost(c); if (S.coins < cost) return;
+      S.coins -= cost; S.crew[c.id] = (S.crew[c.id] || 0) + 1; G.sfx("up");
+      if (S.crew[c.id] === 1) G.toast(`${c.e} <b>${c.name}</b> joined your crew!`);
+      if (Object.values(S.crew).reduce((a, b) => a + b, 0) >= 50) G.achieve(S, "crew50", "Gang of 50", 40, g => S.gems += g);
+      render();
+    });
+  }
+  if (tab === "book") {
+    el.innerHTML = `<p class="note">${Object.keys(S.found).length}/${ITEMS.length} found · +${Math.round(findBonus() * 100)}% coins forever. Every block has a 4.5% chance to hide a find.</p>
+      <div class="book">${ITEMS.map(([e, n, r]) => `<div class="item ${r} ${S.found[n] ? "found" : ""}" title="${S.found[n] ? n + " (" + r + ")" : "???"}">${e}</div>`).join("")}</div>`;
+  }
+  if (tab === "escape") {
+    el.innerHTML = PRISONS.map((p, i) => `<div class="prison ${i === Math.min(S.prison, 5) ? "cur" : ""} ${i > S.maxPrison ? "lock" : ""}">
+      <b style="font-family:'Lilita One';font-weight:400;font-size:1.1rem">${i > S.maxPrison ? "🔒" : p.e} ${p.name}</b>
+      <div class="note" style="margin:2px 0 0">${i < S.prison ? "✅ Escaped" : i === Math.min(S.prison, 5) ? `Dig ${goal()}m and break the Warden's vault door` : `Exit at ${p.goal}m`}</div></div>`).join("") +
+      `<p class="note">Escaping resets coins, tools and crew, but earns ⭐ Freedom Stars (each one ×1.15 to everything, forever. You're at ${G.fmt(starMult())}× now) and moves you to a tougher prison.</p>`;
+  }
+  if (tab === "shop") {
+    const day = G.dailyDay(S);
+    const extra = `<div class="row"><span class="e">🎁</span><div class="info"><b>Daily reward</b><small>${day ? `Day ${day} of 7 — claim ${day === 7 ? 100 : day * 10} 💎` : "Come back tomorrow! Streak: " + (S.daily?.streak || 0)}</small></div>
+      <button class="buy" id="daily" ${day ? "" : "disabled"}>${day ? "Claim" : "✓"}</button></div>
+      <div class="row"><span class="e">⏩</span><div class="info"><b>Time Warp</b><small>Instantly get 1 hour of crew earnings (🪙${G.fmt(dps() * mult() * 3600 * 0.55)})</small></div>
+      <button class="buy gem" data-cost="60" data-cur="gems" id="warp">60 💎</button></div>`;
+    G.renderStore(el, S, (p) => { render(); }, extra);
+    const dl = el.querySelector("#daily"); if (dl) dl.onclick = () => { const d = G.claimDaily(S); if (!d) return; const g = (d === 7 ? 100 : d * 10) + (S.owned.vip ? 50 : 0); S.gems += g; G.sfx("rare"); G.toast(`🎁 Day ${d}: +${g} 💎`); document.querySelector('[data-t="shop"] .dot')?.remove(); render(); };
+    el.querySelector("#warp").onclick = () => { if (S.gems < 60) return; S.gems -= 60; const c = dps() * mult() * 3600 * 0.55; S.coins += c; G.toast(`⏩ +🪙${G.fmt(c)}`); G.sfx("coin"); render(); };
+  }
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { tab = b.dataset.t; render(); G.sfx("tap"); });
+
+// ---------- boot ----------
+const away = G.awaySeconds(S, S.owned.vip ? 24 : 8);
+if (away > 60 && dps() > 0) {
+  const earned = dps() * mult() * away * 0.55 * (S.owned.vip ? 1 : 0.5);
+  G.modal("Welcome back!", `<div style="font-size:3rem">⛏️💰</div><p>Your crew kept digging for <b>${G.time(away)}</b>.</p><p style="font-size:1.4rem"><b>🪙 ${G.fmt(earned)}</b></p>`,
+    [{ label: "Collect", onClick: () => { S.coins += earned; render(); } }, { label: "2× for 20 💎", cls: "gem", onClick: () => { if (S.gems >= 20) { S.gems -= 20; S.coins += earned * 2; } else S.coins += earned; render(); } }]);
+} else if (!S.stats.taps) {
+  G.modal("DIG OUT", `<div style="font-size:3rem">🧑‍🦲⛏️</div><p>You're in <b>County Jail</b> with nothing but a spoon.</p><p><b>Tap the dirt to dig.</b> Upgrade your tools, recruit a crew, and don't let the guard hear you.</p><p>Reach the Warden's vault door at 50m to escape!</p>`, [{ label: "Start digging" }]);
+}
+G.autosave(KEY, () => S);
+renderAbilities(); render(); hud(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>

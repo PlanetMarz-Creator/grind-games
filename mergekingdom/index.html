@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Merge Kingdom</title>
+<meta name="description" content="Merge tents into castles, farms into great trees, walls into dragon roosts. Defend your kingdom from raiders.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap">
+<style>
+  /* Merge Kingdom — a cozy tabletop diorama: meadow greens, cream tiles with soft shadows, rounded Baloo type, honey accents. */
+  :root { --grass: #7cc36a; --grass-d: #4f9a43; --cream: #fff8e7; --tile: #f3e6c4; --tile-d: #d9c79c; --honey: #ffb938; --berry: #e5577a; --sky: #cdeefd; --ink: #3a2f1e; --mut: #8a7a5c; --energy: #3fb6ff; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body { background: linear-gradient(var(--sky), #e9f8ff 30%, var(--grass) 30.1%, var(--grass-d)); color: var(--ink); font: 600 15px/1.3 "Baloo 2", system-ui, sans-serif; overscroll-behavior: none; min-height: 100vh; }
+  .app { max-width: 480px; margin: 0 auto; padding-bottom: 20px; }
+  .top { display: flex; gap: 6px; padding: 10px 10px 4px; align-items: center; }
+  .pill { background: var(--cream); border: 2px solid var(--tile-d); border-radius: 999px; padding: 1px 10px 1px 4px; display: flex; gap: 4px; align-items: center; font-weight: 800; box-shadow: 0 3px 0 var(--tile-d); }
+  .pill .i { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: .95rem; }
+  .pill small { color: var(--mut); font-weight: 600; }
+  .back { color: var(--ink); text-decoration: none; opacity: .6; }
+  .spacer { flex: 1; }
+  .kingdom { display: flex; align-items: center; gap: 8px; padding: 0 12px 6px; }
+  .kingdom h1 { margin: 0; font-size: 1.3rem; font-weight: 800; }
+  .kbar { flex: 1; height: 12px; border-radius: 99px; background: rgba(255,255,255,.6); border: 2px solid var(--tile-d); overflow: hidden; }
+  .kbar i { display: block; height: 100%; background: linear-gradient(var(--honey), #f09a00); width: 0; transition: width .3s; }
+  .quests { display: flex; gap: 6px; padding: 0 10px 8px; overflow-x: auto; }
+  .q { flex: 1 0 30%; background: var(--cream); border: 2px solid var(--tile-d); border-radius: 12px; padding: 4px 6px; font-size: .74rem; line-height: 1.15; position: relative; box-shadow: 0 3px 0 var(--tile-d); min-width: 0; }
+  .q b { display: block; font-size: .8rem; } .q .qbar { height: 5px; background: var(--tile); border-radius: 3px; margin-top: 3px; overflow: hidden; } .q .qbar i { display: block; height: 100%; background: var(--grass-d); }
+  .q.done { border-color: var(--grass-d); background: #eaffdf; cursor: pointer; animation: wig 1s infinite; }
+  @keyframes wig { 50% { transform: rotate(-2deg) scale(1.03); } }
+  .board-wrap { position: relative; margin: 0 10px; padding: 10px; border-radius: 22px; background: #6db35c; box-shadow: inset 0 0 0 4px rgba(255,255,255,.25), 0 8px 0 #3f7d35; }
+  .board { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; touch-action: none; }
+  /* 3D mode: kingdom3d.js renders the diorama under a transparent DOM grid whose rows match the camera tilt. */
+  #k3d { display: none; }
+  body.k3d #k3d { display: block; position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 22px; z-index: 0; }
+  body.k3d .board-wrap { background: #7cc36a; box-shadow: 0 8px 0 #3f7d35; padding: 92px 26px 84px; overflow: hidden; } /* room for the meadow, windmill and river */
+  body.k3d .board { position: relative; z-index: 1; row-gap: 4.9px; } /* 7px × TILT */
+  body.k3d .cell { background: transparent; box-shadow: none; aspect-ratio: 1 / 0.7; } /* must equal Kingdom3D.TILT */
+  body.k3d .cell .it, body.k3d .cell .raider { font-size: 0; background: none; animation: none; }
+  body.k3d .cell .raider { width: 80%; height: 80%; }
+  body.k3d .cell .lv { font-size: .62rem; color: #fff; background: rgba(40,30,10,.55); border-radius: 6px; padding: 0 4px; bottom: 1px; right: 2px; }
+  body.k3d .cell.locked { background: transparent; }
+  body.k3d .cell.locked > div { background: rgba(30,20,5,.55); border-radius: 10px; padding: 3px 6px; }
+  body.k3d .cell.hint { box-shadow: 0 0 0 3px var(--honey), 0 0 16px var(--honey); border-radius: 10px; }
+  body.k3d .ghost { opacity: 0; }
+  .cell { aspect-ratio: 1; border-radius: 14px; background: var(--tile); box-shadow: inset 0 -4px 0 var(--tile-d); display: grid; place-items: center; font-size: 2rem; position: relative; }
+  .cell.locked { background: rgba(0,0,0,.18); box-shadow: none; font-size: .7rem; color: #fff; text-align: center; line-height: 1.1; cursor: pointer; }
+  .cell.locked b { display: block; font-size: 1.1rem; }
+  .cell .it { width: 100%; height: 100%; display: grid; place-items: center; cursor: grab; position: relative; border-radius: 14px; }
+  .cell .lv { position: absolute; bottom: 2px; right: 5px; font-size: .62rem; font-weight: 800; color: var(--mut); }
+  .cell .it.home { background: radial-gradient(circle, rgba(255,185,56,.25), transparent 70%); }
+  .cell .it.farm { background: radial-gradient(circle, rgba(79,154,67,.22), transparent 70%); }
+  .cell .it.tower { background: radial-gradient(circle, rgba(63,182,255,.22), transparent 70%); }
+  .cell .it.wonder { background: radial-gradient(circle, rgba(229,87,122,.3), transparent 70%); animation: shine 2s infinite; }
+  @keyframes shine { 50% { filter: drop-shadow(0 0 8px #fff); } }
+  .cell.hint { box-shadow: inset 0 -4px 0 var(--tile-d), 0 0 0 3px var(--honey); }
+  .cell.hint::after { content: attr(data-result); position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); z-index: 5; white-space: nowrap; font: 800 .68rem "Baloo 2"; color: #fff; background: #0f7a8a; border: 2px solid #7ff4ff; border-radius: 999px; padding: 0 7px; pointer-events: none; box-shadow: 0 0 10px #7ff4ff; }
+  .cell .raider { font-size: 2rem; cursor: pointer; animation: stomp .5s infinite alternate; position: relative; }
+  .cell .raider .rhp { position: absolute; left: 10%; right: 10%; bottom: -2px; height: 5px; background: rgba(0,0,0,.3); border-radius: 3px; overflow: hidden; }
+  .cell .raider .rhp i { display: block; height: 100%; background: var(--berry); }
+  @keyframes stomp { to { transform: translateY(-3px) rotate(4deg); } }
+  .cell.pop .it { animation: pop .35s; }
+  @keyframes pop { 40% { transform: scale(1.35); } }
+  .ghost { position: fixed; z-index: 80; font-size: 2.6rem; pointer-events: none; transform: translate(-50%, -60%) scale(1.15); filter: drop-shadow(0 8px 6px rgba(0,0,0,.3)); }
+  .coinfx { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: .7rem; color: #b37400; font-weight: 800; pointer-events: none; animation: cup 1s forwards; }
+  @keyframes cup { to { transform: translate(-50%, -18px); opacity: 0; } }
+  .raidbar { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--berry); color: #fff; font-weight: 800; padding: 2px 12px; border-radius: 999px; font-size: .8rem; border: 2px solid #fff; white-space: nowrap; z-index: 5; }
+  .actions { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 8px; padding: 14px 10px 8px; align-items: stretch; }
+  .spawn { border: 0; border-radius: 18px; background: linear-gradient(#ffd36b, var(--honey)); box-shadow: 0 5px 0 #c98400; font: 800 1.2rem "Baloo 2"; color: var(--ink); padding: 8px; cursor: pointer; }
+  .spawn small { display: block; font-size: .75rem; font-weight: 700; }
+  .spawn { display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .spawn canvas, .goal canvas { width: 48px; height: 48px; display: none; }
+  body.k3d .spawn canvas, body.k3d .goal canvas { display: block; }
+  body.k3d .spawn .nemo, body.k3d .goal .gemo { display: none; }
+  .spawn .nemo { font-size: 1.8rem; } .spawn .lbl { text-align: left; line-height: 1.1; }
+  .goal { display: flex; align-items: center; gap: 8px; margin: 0 10px 8px; background: rgba(255,248,231,.92); border: 2px solid var(--tile-d); border-radius: 14px; padding: 2px 10px 2px 4px; box-shadow: 0 3px 0 var(--tile-d); }
+  .goal .gemo { font-size: 1.8rem; filter: brightness(0); opacity: .5; }
+  .goal b { display: block; font-size: .78rem; color: var(--mut); text-transform: uppercase; letter-spacing: .05em; } .goal small { font-size: .88rem; font-weight: 700; }
+  .bubble { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); z-index: 3; width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff; background: radial-gradient(circle at 35% 30%, #fff6c2, #ffb938 60%, #c98400); font-size: .95rem; cursor: pointer; animation: bob 1s ease-in-out infinite; box-shadow: 0 4px 10px rgba(0,0,0,.3); }
+  @keyframes bob { 50% { transform: translate(-50%, -5px); } }
+  .chest { width: 100%; height: 100%; display: grid; place-items: center; font-size: 1.8rem; cursor: pointer; animation: bob2 1s ease-in-out infinite; }
+  @keyframes bob2 { 50% { transform: translateY(-3px); } }
+  body.k3d .chest { font-size: 0; animation: none; }
+  .merchant { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 4; border: 2px solid #fff; border-radius: 999px; background: var(--berry); color: #fff; font: 800 .9rem "Baloo 2"; padding: 4px 14px; box-shadow: 0 4px 0 #a8324f; cursor: pointer; animation: bob2 .8s ease-in-out infinite; }
+  .spawn:active { transform: translateY(4px); box-shadow: 0 1px 0 #c98400; }
+  .spawn:disabled { filter: grayscale(.7); }
+  .side { border: 0; border-radius: 16px; background: var(--cream); box-shadow: 0 4px 0 var(--tile-d); font: 800 .78rem "Baloo 2"; color: var(--ink); cursor: pointer; position: relative; }
+  .side .e { display: block; font-size: 1.5rem; }
+  .side .dot { position: absolute; top: 4px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--berry); }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 70; max-width: 480px; margin: 0 auto; background: var(--cream); border-radius: 22px 22px 0 0; box-shadow: 0 -10px 30px rgba(0,0,0,.25); max-height: 72vh; overflow: auto; padding: 8px 12px 20px; animation: up .25s ease-out; }
+  @keyframes up { from { transform: translateY(100%); } }
+  .sheet .grab { width: 44px; height: 5px; border-radius: 3px; background: var(--tile-d); margin: 2px auto 8px; }
+  .sheet h2 { margin: 0 0 6px; font-size: 1.3rem; font-weight: 800; }
+  .stabs { display: flex; gap: 6px; margin-bottom: 8px; } .stabs button { flex: 1; font: 800 .85rem "Baloo 2"; border: 2px solid var(--tile-d); background: #fff; border-radius: 12px; padding: 6px; cursor: pointer; }
+  .stabs button[aria-selected="true"] { background: var(--honey); border-color: #c98400; }
+  .row { display: flex; gap: 10px; align-items: center; padding: 8px; background: #fff; border-radius: 14px; margin-bottom: 8px; border: 2px solid var(--tile); }
+  .row .e { font-size: 1.9rem; width: 40px; text-align: center; } .row .info { flex: 1; min-width: 0; } .row small { display: block; color: var(--mut); font-weight: 600; font-size: .8rem; }
+  .btn { font: 800 .85rem "Baloo 2"; border: 0; border-radius: 12px; padding: 7px 12px; min-width: 84px; background: var(--grass); color: #fff; box-shadow: 0 3px 0 var(--grass-d); cursor: pointer; }
+  .btn:disabled { background: #ccc; box-shadow: 0 3px 0 #aaa; cursor: default; }
+  .btn.gem { background: var(--berry); box-shadow: 0 3px 0 #a8324f; }
+  .chain { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 10px; } .chain span { width: 38px; height: 38px; display: grid; place-items: center; font-size: 1.4rem; background: #fff; border-radius: 10px; border: 2px solid var(--tile); }
+  .chain span.no { filter: brightness(0); opacity: .25; }
+  .note { color: var(--mut); font-size: .82rem; margin: 4px; }
+  .gx-toasts { position: fixed; top: 58px; left: 50%; transform: translateX(-50%); z-index: 90; display: grid; gap: 6px; width: min(92vw, 420px); pointer-events: none; }
+  .gx-toast { background: var(--cream); border: 2px solid var(--honey); border-radius: 14px; padding: 6px 12px; text-align: center; box-shadow: 0 4px 0 #c98400; animation: tin .25s; }
+  .gx-toast.out { opacity: 0; transition: opacity .4s; } @keyframes tin { from { opacity: 0; transform: translateY(-10px); } }
+  .gx-backdrop { position: fixed; inset: 0; background: rgba(40,30,10,.55); display: grid; place-items: center; z-index: 95; padding: 16px; }
+  .gx-modal { width: min(100%, 360px); background: var(--cream); border-radius: 24px; padding: 20px; text-align: center; box-shadow: 0 8px 0 var(--tile-d), 0 20px 40px rgba(0,0,0,.3); animation: tin .25s; }
+  .gx-title { margin: 0 0 8px; font-size: 1.5rem; font-weight: 800; }
+  .gx-body p { margin: 6px 0; } .gx-demo { font-size: .75rem; color: var(--mut); }
+  .gx-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+  .gx-btn { font: 800 1rem "Baloo 2"; border: 0; border-radius: 14px; padding: 9px 18px; background: var(--grass); color: #fff; box-shadow: 0 4px 0 var(--grass-d); cursor: pointer; }
+  .gx-btn.ghost { background: #fff; color: var(--ink); box-shadow: 0 4px 0 var(--tile-d); } .gx-btn.gem { background: var(--berry); box-shadow: 0 4px 0 #a8324f; }
+  .gx-product { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 16px; margin-bottom: 10px; background: #fff; border: 2px solid var(--tile); }
+  .gx-product small { color: var(--mut); margin-bottom: 6px; } .gx-product.owned { opacity: .5; } .gx-product .gx-btn { align-self: flex-start; }
+  .gx-badge { position: absolute; top: -10px; right: 10px; background: var(--berry); color: #fff; font-size: .7rem; padding: 1px 8px; border-radius: 999px; }
+  .gx-float { position: fixed; z-index: 85; pointer-events: none; font: 800 1.2rem "Baloo 2"; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.35); animation: fl .9s forwards; transform: translate(-50%, -50%); }
+  @keyframes fl { to { transform: translate(-50%, -160%); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <a class="back" href="../index.html">◀</a>
+    <div class="pill"><span class="i">🪙</span><span id="coins">0</span><small id="cps"></small></div>
+    <div class="pill"><span class="i">⚡</span><span id="energy">0</span><small id="etimer"></small></div>
+    <div class="pill"><span class="i">💎</span><span id="gems">0</span></div>
+    <span class="spacer"></span>
+  </div>
+  <div class="kingdom"><h1 id="kname">Kingdom</h1><div class="kbar"><i id="kxp"></i></div><b id="klv">Lv 1</b></div>
+  <div class="goal" id="goal"><canvas id="goalThumb" width="96" height="96"></canvas><span class="gemo" id="goalEmoji">❔</span><div><b>Next discovery</b><small id="goalText"></small></div></div>
+  <div class="quests" id="quests"></div>
+  <div class="board-wrap"><canvas id="k3d" aria-hidden="true"></canvas><button class="merchant" id="merchantBtn" hidden>🛒 Merchant is here!</button><div class="raidbar" id="raidbar" hidden></div><div class="board" id="board"></div></div>
+  <div class="actions">
+    <button class="side" id="bookBtn"><span class="e">📖</span>Book</button>
+    <button class="spawn" id="spawn"><canvas id="nextThumb" width="96" height="96" aria-hidden="true"></canvas><span class="nemo" id="nextEmoji"></span><span class="lbl">🎁 Build!<small id="nextName">costs ⚡1</small></span></button>
+    <button class="side" id="menuBtn"><span class="e">🏛️</span>Kingdom</button>
+  </div>
+  <p class="note" style="text-align:center;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4)">Drag two matching buildings together to merge them. Tap raiders to fight!</p>
+</div>
+<div class="sheet" id="sheet" hidden></div>
+<script type="module" src="kingdom3d.js"></script>
+<script src="../shared/engine.js"></script>
+<script>
+const G = Grind, KEY = "mergekingdom-v1", COLS = 5, ROWS = 6;
+const CHAINS = {
+  home: { name: "Homes", what: "coins", items: [["⛺", "Tent"], ["🛖", "Hut"], ["🏠", "House"], ["🏡", "Cottage"], ["🏘️", "Hamlet"], ["🏛️", "Hall"], ["🏰", "Castle"], ["🏯", "Palace"], ["🌆", "City"], ["🌃", "Metropolis"]] },
+  farm: { name: "Farms", what: "energy", items: [["🌱", "Sprout"], ["🌿", "Herb Patch"], ["🌾", "Wheat Field"], ["🌽", "Corn Field"], ["🍎", "Orchard"], ["🐄", "Ranch"], ["🚜", "Farmstead"], ["🍯", "Apiary"], ["🌳", "Elder Grove"], ["🌈", "Eden"]] },
+  tower: { name: "Defenses", what: "defense", items: [["🪵", "Stake"], ["🧱", "Wall"], ["🗿", "Guardian Stone"], ["🛡️", "Outpost"], ["🏹", "Archer Post"], ["🗼", "Watchtower"], ["⚔️", "Barracks"], ["💣", "Cannon Fort"], ["🐉", "Dragon Roost"], ["🔮", "Mage Spire"]] },
+};
+const RAIDERS = [["👺", "Goblin", 3, 1], ["🐺", "Wolf", 5, 4], ["👹", "Ogre", 12, 8], ["🧌", "Troll", 30, 13], ["💀", "Bone Knight", 80, 18], ["🐲", "Wyrm", 250, 24]]; // [e, name, hp, from kingdom level]
+const ADVISORS = [
+  { id: "ada", e: "👸", name: "Queen Ada", lvl: 3, cost: 500, desc: "+50% coins from all Homes" },
+  { id: "fae", e: "🧚", name: "Fern the Fairy", lvl: 5, cost: 3000, desc: "Energy refills 50% faster" },
+  { id: "merlin", e: "🧙", name: "Merlin", lvl: 8, cost: 25000, desc: "Auto-merges a matching pair every 12s" },
+  { id: "scout", e: "🧝", name: "Elf Scout", lvl: 11, cost: 2e5, desc: "Towers deal double damage to raiders" },
+  { id: "drake", e: "🐲", name: "Sir Puff (a dragon)", lvl: 15, cost: 2e6, desc: "Breathes fire on a random raider every 2s" },
+  { id: "gnome", e: "🧑‍🔧", name: "Tinker Gnome", lvl: 20, cost: 3e7, desc: "30% chance Build! makes a Lv 2 item" },
+];
+const KNAMES = ["Muddy Field", "Little Camp", "Hamlet", "Village", "Town", "Shire", "Barony", "County", "Duchy", "Kingdom", "Grand Kingdom", "Empire", "Legendary Empire"];
+const DEF = { next: null, coins: 30, gems: 30, energy: 40, eAt: 0, grid: [], unlocked: 16, lvl: 1, xp: 0, found: {}, adv: {}, quests: [], qDone: 0, wonders: 0, merges: 0, kills: 0, spawner: 0, owned: {} };
+const S = G.load(KEY, DEF);
+if (!S.grid.length) { S.grid = Array(COLS * ROWS).fill(null); S.grid[7] = ["home", 0]; S.grid[8] = ["home", 0]; S.grid[12] = ["farm", 0]; }
+
+// ---------- economy ----------
+const homeRate = (t) => 0.4 * Math.pow(3.1, t);
+const wonderMult = () => 1 + S.wonders * 0.25;
+const cps = () => S.grid.reduce((a, c) => a + (c && c[0] === "home" ? homeRate(c[1]) : 0), 0) * (S.adv.ada ? 1.5 : 1) * wonderMult() * (S.owned.starter ? 2 : 1);
+const farmTiers = () => S.grid.reduce((a, c) => a + (c && c[0] === "farm" ? c[1] + 1 : 0), 0);
+const eMax = () => 40 + farmTiers() * 3;
+const eEvery = () => Math.max(4, 30 - farmTiers() * 0.8) / (S.adv.fae ? 1.5 : 1);
+const defense = () => S.grid.reduce((a, c) => a + (c && c[0] === "tower" ? Math.pow(2.2, c[1]) : 0), 0) * (S.adv.scout ? 2 : 1);
+const xpNeed = () => Math.ceil(20 * Math.pow(1.35, S.lvl));
+const unlockCost = () => Math.ceil(80 * Math.pow(2.6, S.unlocked - 16));
+const spawnerCost = () => Math.ceil(200 * Math.pow(4, S.spawner));
+const isOpen = (i) => i < S.unlocked;
+
+// ---------- board rendering ----------
+const board = document.getElementById("board");
+let raiders = {}; // cell index -> {e, name, hp, max}
+function cellHtml(i) {
+  if (!isOpen(i)) return i === S.unlocked ? `<div class="cell locked" data-i="${i}"><div><b>🔒</b>🪙${G.fmt(unlockCost())}</div></div>` : `<div class="cell locked" data-i="${i}" style="opacity:.5"></div>`;
+  const r = raiders[i];
+  if (r) return `<div class="cell" data-i="${i}"><div class="raider" data-r="${i}">${r.e}<span class="rhp"><i style="width:${r.hp / r.max * 100}%"></i></span></div></div>`;
+  const c = S.grid[i]; if (!c) return `<div class="cell" data-i="${i}">${chests[i] ? `<div class="chest" data-chest="${i}">🎁</div>` : ""}</div>`;
+  const [ch, t] = c, [e] = ch === "wonder" ? ["✨"] : CHAINS[ch].items[t];
+  return `<div class="cell" data-i="${i}"><div class="it ${ch}" data-it="${i}">${e}${ch === "wonder" ? "" : `<span class="lv">${t + 1}</span>`}</div>${bubbles[i] && ch === "home" ? `<button class="bubble" data-bub="${i}" aria-label="Collect coins">🪙</button>` : ""}</div>`;
+}
+function renderBoard() { board.innerHTML = S.grid.map((_, i) => cellHtml(i)).join(""); layout3d(); }
+function renderCell(i, pop) { const old = board.children[i]; old.outerHTML = cellHtml(i); if (pop) board.children[i].classList.add("pop"); }
+
+// ---------- drag & merge ----------
+let drag = null;
+board.addEventListener("pointerdown", (e) => {
+  const bub = e.target.closest("[data-bub]"); if (bub) return collectBubble(+bub.dataset.bub, e.clientX, e.clientY);
+  const ch = e.target.closest("[data-chest]"); if (ch) return openChest(+ch.dataset.chest, e.clientX, e.clientY);
+  const lock = e.target.closest(".cell.locked"); if (lock && +lock.dataset.i === S.unlocked) return unlockCell();
+  const r = e.target.closest("[data-r]"); if (r) return hitRaider(+r.dataset.r, e.clientX, e.clientY);
+  const it = e.target.closest("[data-it]"); if (!it) return;
+  const i = +it.dataset.it;
+  drag = { i, ghost: G.el("div", "ghost", it.firstChild.textContent), moved: false, x: e.clientX, y: e.clientY };
+  if (view3d) { Kingdom3D.drag(i, e.clientX, e.clientY, k3d); const [hc, ht] = S.grid[i]; const matches = S.grid.map((c, j) => j !== i && c && c[0] === hc && c[1] === ht && hc !== "wonder" ? j : -1).filter(j => j >= 0); if (matches.length) Kingdom3D.showHolo(matches, ht >= 9 ? "wonder:0" : `${hc}:${ht + 1}`); }
+  document.body.appendChild(drag.ghost); moveGhost(e); it.style.opacity = .3;
+  const [dc, dt] = S.grid[i], res = dc === "wonder" ? null : dt >= 9 ? "✨ Wonder" : `${CHAINS[dc].items[dt + 1][0]} ${S.found[dc + (dt + 1)] ? CHAINS[dc].items[dt + 1][1] : "???"}`;
+  S.grid.forEach((c, j) => { if (j !== i && c && c[0] === dc && c[1] === dt && res) { board.children[j].classList.add("hint"); board.children[j].dataset.result = "→ " + res; } });
+});
+addEventListener("pointermove", (e) => { if (drag) { moveGhost(e); if (view3d) Kingdom3D.drag(drag.i, e.clientX, e.clientY, k3d); if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true; } });
+addEventListener("pointerup", (e) => {
+  if (!drag) return;
+  if (view3d) { Kingdom3D.drop(); Kingdom3D.clearHolo(); }
+  const from = drag.i; drag.ghost.remove();
+  const under = document.elementFromPoint(e.clientX, e.clientY)?.closest(".cell"), to = under ? +under.dataset.i : -1;
+  const wasTap = !drag.moved; drag = null;
+  document.querySelectorAll(".cell.hint").forEach(c => c.classList.remove("hint"));
+  if (wasTap) { renderCell(from); return info(from); }
+  if (to < 0 || to === from || !isOpen(to) || raiders[to]) return renderCell(from);
+  const a = S.grid[from], b = S.grid[to];
+  if (b && a[0] === b[0] && a[1] === b[1] && a[0] !== "wonder") merge(from, to);
+  else { if (chests[to]) openChest(to); S.grid[to] = a; S.grid[from] = b; renderCell(from); renderCell(to); G.sfx("tap"); }
+});
+addEventListener("pointercancel", () => { if (!drag) return; if (view3d) { Kingdom3D.drop(); Kingdom3D.clearHolo(); } drag.ghost.remove(); renderCell(drag.i); drag = null; document.querySelectorAll(".cell.hint").forEach(c => c.classList.remove("hint")); });
+function moveGhost(e) { drag.ghost.style.left = e.clientX + "px"; drag.ghost.style.top = e.clientY + "px"; }
+function merge(from, to) {
+  const [ch, t] = S.grid[to];
+  S.grid[from] = null;
+  if (t >= 9) { S.grid[to] = ["wonder", 0]; S.wonders++; G.sfx("rare"); G.modal("✨ A WONDER IS BORN ✨", `<div style="font-size:4rem">✨</div><p>Two ${CHAINS[ch].items[9][1]}s became a <b>Wonder</b>.</p><p>All coins ×${wonderMult().toFixed(2)} forever.</p>`, [{ label: "Glorious!" }]); G.achieve(S, "wonder", "Wonder of the World", 200, g => S.gems += g); }
+  else {
+    S.grid[to] = [ch, t + 1]; G.sfx(t + 1 >= 5 ? "rare" : "coin");
+    const key = ch + (t + 1);
+    if (!S.found[key]) { S.found[key] = 1; showGoal(); const [e, n] = CHAINS[ch].items[t + 1]; S.gems += 2 + t; G.toast(`📖 New discovery: ${e} <b>${n}</b> · +${2 + t} 💎`, 2600);
+      if (t + 1 === 9) G.achieve(S, "top" + ch, `Master of ${CHAINS[ch].name}`, 100, g => S.gems += g); }
+  }
+  S.merges++; addXp((t + 1) * 2); progress("merge", 1); progress("make", 1, ch, t + 1);
+  renderCell(from); renderCell(to, true); hud();
+}
+function addXp(n) {
+  S.xp += n;
+  while (S.xp >= xpNeed()) {
+    S.xp -= xpNeed(); S.lvl++; S.gems += 10; S.energy = Math.max(S.energy, eMax()); G.sfx("up");
+    const adv = ADVISORS.find(a => a.lvl === S.lvl), raider = RAIDERS.find(r => r[3] === S.lvl);
+    G.modal(`🎉 Level ${S.lvl}!`, `<p>Your realm is now a <b>${kname()}</b>.</p><p>+10 💎 · energy refilled</p>${adv ? `<p>${adv.e} <b>${adv.name}</b> wants to advise you!</p>` : ""}${raider ? `<p>⚠️ New threat: ${raider[0]} <b>${raider[1]}s</b> have been spotted…</p>` : ""}`, [{ label: "Hooray!" }]);
+  }
+}
+const kname = () => KNAMES[Math.min(KNAMES.length - 1, Math.floor((S.lvl - 1) / 2))];
+function spawnItem() {
+  if (S.energy < 1) return energyEmpty();
+  const empty = S.grid.map((c, i) => (!c && isOpen(i) && !raiders[i] && !chests[i]) ? i : -1).filter(i => i >= 0);
+  if (!empty.length) return G.toast("Board full! Merge something first.");
+  S.energy--; if (!S.eAt) S.eAt = Date.now();
+  const [ch, t] = S.next || rollNext();
+  const i = empty[Math.random() * empty.length | 0];
+  rollNext();
+  S.grid[i] = [ch, t]; S.found[ch + t] = 1; renderCell(i, true); G.sfx("tap"); progress("build", 1); hud();
+}
+
+// ---------- next build, discovery goal, bubbles, chests, merchant ----------
+let bubbles = {}, chests = {}, merchant = null, bubbleT = 8, chestT = 40, merchantT = 120;
+function rollNext() {
+  const roll = Math.random(), ch = roll < 0.5 ? "home" : roll < 0.78 ? "farm" : "tower";
+  const t = Math.random() < (S.spawner * 0.08 + (S.adv.gnome ? 0.3 : 0)) ? 1 : 0;
+  S.next = [ch, t]; showNext(); return S.next;
+}
+function showNext() {
+  if (!S.next) return;
+  const [ch, t] = S.next, [e, n] = CHAINS[ch].items[t];
+  document.getElementById("nextEmoji").textContent = e;
+  document.getElementById("nextName").textContent = `Next: ${n} · ⚡1`;
+  if (view3d) Kingdom3D.thumbnail(`${ch}:${t}`, document.getElementById("nextThumb"));
+  showGoal();
+}
+// The next building you haven't discovered yet (lowest tier across chains), shown as a silhouette.
+function showGoal() {
+  let best = null;
+  for (const ch of ["home", "farm", "tower"]) { let top = -1; for (let t = 0; t < 10; t++) if (S.found[ch + t]) top = t; if (top < 9 && (!best || top + 1 < best[1])) best = [ch, top + 1]; }
+  const el = document.getElementById("goal");
+  if (!best) { el.hidden = true; return; }
+  const [ch, t] = best, prev = CHAINS[ch].items[t - 1];
+  document.getElementById("goalEmoji").textContent = CHAINS[ch].items[t][0];
+  document.getElementById("goalText").textContent = t ? `Lv ${t + 1} ${CHAINS[ch].name.slice(0, -1)}: merge two ${prev[1]}s` : `Build a ${CHAINS[ch].items[0][1]}`;
+  if (view3d) Kingdom3D.thumbnail(`${ch}:${t}`, document.getElementById("goalThumb"), true);
+}
+function collectBubble(i, x, y) {
+  const c = S.grid[i]; delete bubbles[i]; renderCell(i);
+  if (!c) return;
+  const g = Math.ceil(homeRate(c[1]) * 40 * (S.adv.ada ? 1.5 : 1) * wonderMult());
+  S.coins += g; G.sfx("coin"); if (x != null) G.float(x, y, "+" + G.fmt(g) + " 🪙"); hud();
+}
+function openChest(i, x, y) {
+  delete chests[i]; renderCell(i); G.sfx("rare");
+  const r = Math.random();
+  const msg = r < 0.4 ? (S.gems += 3 + (Math.random() * 6 | 0), "💎 Gems!") : r < 0.7 ? (S.energy = Math.min(eMax() + 20, S.energy + 12), "+12 ⚡ energy") : (S.coins += Math.ceil(cps() * 90 + 60), "🪙 A pile of coins");
+  G.toast(`🎁 Treasure chest: <b>${msg}</b>`); if (x != null) G.float(x, y, "🎁"); hud();
+}
+function tickExtras(dt) {
+  const now = Date.now();
+  for (const i of Object.keys(bubbles)) if (bubbles[i] < now || !S.grid[i]) { delete bubbles[i]; renderCell(+i); }
+  for (const i of Object.keys(chests)) if (chests[i] < now) { delete chests[i]; renderCell(+i); }
+  bubbleT -= dt; if (bubbleT <= 0) { bubbleT = 8 + Math.random() * 10; const homes = S.grid.map((c, i) => c && c[0] === "home" && !bubbles[i] ? i : -1).filter(i => i >= 0); if (homes.length) { const i = homes[Math.random() * homes.length | 0]; bubbles[i] = now + 14000; renderCell(i); } }
+  chestT -= dt; if (chestT <= 0) { chestT = 45 + Math.random() * 45; const empty = S.grid.map((c, i) => !c && isOpen(i) && !raiders[i] && !chests[i] ? i : -1).filter(i => i >= 0); if (empty.length) { const i = empty[Math.random() * empty.length | 0]; chests[i] = now + 30000; renderCell(i); G.toast("🎁 A treasure chest appeared!"); } }
+  merchantT -= dt;
+  if (!merchant && merchantT <= 0 && S.lvl >= 2) { merchant = { until: now + 70000 }; document.getElementById("merchantBtn").hidden = false; G.toast("🛒 A wandering merchant has arrived!"); }
+  if (merchant && merchant.until < now) { merchant = null; merchantT = 150 + Math.random() * 120; document.getElementById("merchantBtn").hidden = true; }
+  if (view3d) Kingdom3D.world({ homes: S.grid.filter(c => c && c[0] === "home").length, chestCells: Object.keys(chests).map(Number), merchant: !!merchant });
+}
+document.getElementById("merchantBtn").onclick = () => {
+  let top = 0; for (let t = 0; t < 10; t++) if (S.found["home" + t]) top = t;
+  const tier = Math.max(1, top - 1), [e, n] = CHAINS.home.items[tier], price = Math.ceil(homeRate(tier) * 150 + 50), ePrice = Math.ceil(cps() * 50 + 80);
+  const place = (item) => { const empty = S.grid.map((c, i) => (!c && isOpen(i) && !raiders[i] && !chests[i]) ? i : -1).filter(i => i >= 0); if (!empty.length) { G.toast("No free tile!"); return false; } const i = empty[Math.random() * empty.length | 0]; S.grid[i] = item; S.found[item[0] + item[1]] = 1; renderCell(i, true); return true; };
+  G.modal("🛒 Wandering Merchant", `<p>"Finest goods from distant lands!"</p><p class="gx-demo">Leaves in ${Math.ceil((merchant.until - Date.now()) / 1000)}s</p>`, [
+    { label: `${e} ${n} · 🪙${G.fmt(price)}`, onClick: () => { if (S.coins < price) return G.toast("Not enough coins"); if (place(["home", tier])) { S.coins -= price; G.sfx("rare"); } hud(); } },
+    { label: `+15 ⚡ · 🪙${G.fmt(ePrice)}`, cls: "ghost", onClick: () => { if (S.coins < ePrice) return G.toast("Not enough coins"); S.coins -= ePrice; S.energy += 15; G.sfx("coin"); hud(); } },
+    { label: "🎲 Mystery crate · 12 💎", cls: "gem", onClick: () => { if (S.gems < 12) return G.toast("Not enough 💎"); const item = [["home", "farm", "tower"][Math.random() * 3 | 0], 1 + (Math.random() * 3 | 0)]; if (place(item)) { S.gems -= 12; G.toast(`🎲 You got a ${CHAINS[item[0]].items[item[1]][0]} ${CHAINS[item[0]].items[item[1]][1]}!`); G.sfx("rare"); } hud(); } },
+  ]);
+};
+function energyEmpty() {
+  G.modal("⚡ Out of energy", `<p>Energy refills 1 every ${Math.round(eEvery())}s. Bigger Farms refill faster and hold more.</p>`, [{ label: "Wait", cls: "ghost" }, { label: "Refill · 15 💎", cls: "gem", onClick: () => { if (S.gems < 15) return G.toast("Not enough 💎"); S.gems -= 15; S.energy = eMax(); hud(); } }]);
+}
+function unlockCell() {
+  const c = unlockCost(); if (S.coins < c) return G.toast(`Need 🪙${G.fmt(c)} to clear this land`);
+  S.coins -= c; S.unlocked++; G.sfx("up"); renderBoard(); hud();
+  if (S.unlocked === COLS * ROWS) G.achieve(S, "land", "Every Inch Tamed", 150, g => S.gems += g);
+}
+function info(i) {
+  const c = S.grid[i]; if (!c) return;
+  if (c[0] === "wonder") return G.modal("✨ Wonder", `<p>Permanent ×1.25 coin bonus each. You have ${S.wonders}.</p>`);
+  const [ch, t] = c, [e, n] = CHAINS[ch].items[t];
+  const eff = ch === "home" ? `Makes 🪙${G.fmt(homeRate(t))}/s` : ch === "farm" ? `+${t + 1} farm power (faster, bigger ⚡)` : `${G.fmt(Math.pow(2.2, t))} damage/s to raiders`;
+  const sell = Math.ceil(homeRate(t) * 20 + 5);
+  G.modal(`${e} ${n}`, `<p>Level ${t + 1} ${CHAINS[ch].name.slice(0, -1)}</p><p>${eff}</p>${t < 9 ? `<p class="gx-demo">Merge two to make: ${CHAINS[ch].items[t + 1][0]} ${S.found[ch + (t + 1)] ? CHAINS[ch].items[t + 1][1] : "???"}</p>` : ""}`,
+    [{ label: "Close", cls: "ghost" }, { label: `Sell 🪙${G.fmt(sell)}`, onClick: () => { S.grid[i] = null; S.coins += sell; renderCell(i); hud(); } }]);
+}
+
+// ---------- raids ----------
+let raidT = 70, raidActive = false, raidLoot = 0, raidAge = 0;
+function startRaid() {
+  const pool = RAIDERS.filter(r => r[3] <= S.lvl), count = Math.min(2 + Math.floor(S.lvl / 3), 7);
+  const empty = S.grid.map((c, i) => (!c && isOpen(i) && !chests[i]) ? i : -1).filter(i => i >= 0);
+  if (empty.length < 1) { raidT = 30; return; }
+  raidActive = true; raidLoot = 0; raidAge = 0; G.sfx("bad");
+  for (let k = 0; k < Math.min(count, empty.length); k++) {
+    const [e, name, hp] = pool[Math.random() * pool.length | 0], i = empty.splice(Math.random() * empty.length | 0, 1)[0];
+    const max = Math.ceil(hp * Math.pow(1.6, S.lvl - 1)); raiders[i] = { e, name, hp: max, max }; raidLoot += max * 4;
+    if (!S.found["r" + name]) { S.found["r" + name] = 1; }
+  }
+  G.toast(`⚔️ <b>RAID!</b> ${Object.values(raiders).map(r => r.e).join("")} Tap them before they loot your coins!`, 3000);
+  renderBoard();
+}
+function hitRaider(i, x, y) {
+  const r = raiders[i]; if (!r) return;
+  const dmg = Math.max(1, Math.ceil(r.max * 0.12)); r.hp -= dmg; G.sfx("hit"); G.float(x, y, "-" + G.fmt(dmg));
+  damageRaider(i, 0);
+}
+function damageRaider(i, n) {
+  const r = raiders[i]; if (!r) return;
+  r.hp -= n;
+  if (r.hp <= 0) { delete raiders[i]; S.kills++; progress("kill", 1); G.sfx("coin"); renderCell(i, true);
+    if (!Object.keys(raiders).length) endRaid(true); }
+  else { const bar = board.children[i].querySelector(".rhp i"); if (bar) bar.style.width = (r.hp / r.max * 100) + "%"; }
+}
+function endRaid(won) {
+  raidActive = false; raidT = 90 + Math.random() * 60; document.getElementById("raidbar").hidden = true;
+  if (won) { const loot = Math.ceil(raidLoot * wonderMult()); S.coins += loot; S.gems += 1; addXp(5); G.toast(`🏆 Raid repelled! +🪙${G.fmt(loot)} +1 💎`); if (S.kills >= 100) G.achieve(S, "k100", "Defender of the Realm", 60, g => S.gems += g); }
+  renderBoard(); hud();
+}
+
+// ---------- quests ----------
+function newQuest() {
+  const kinds = [
+    () => ({ k: "merge", n: 5 + S.lvl * 2, txt: n => `Merge ${n} times` }),
+    () => ({ k: "build", n: 8 + S.lvl * 2, txt: n => `Build ${n} items` }),
+    () => { const ch = ["home", "farm", "tower"][Math.random() * 3 | 0], t = Math.min(9, 1 + Math.floor(Math.random() * Math.min(9, 2 + S.lvl / 2))); return { k: "make", ch, t, n: 1, txt: () => `Make a ${CHAINS[ch].items[t][0]} ${CHAINS[ch].items[t][1]}` }; },
+    () => ({ k: "kill", n: 3 + S.lvl, txt: n => `Defeat ${n} raiders` }),
+  ];
+  const q = kinds[Math.random() * kinds.length | 0](); q.p = 0; q.rw = Math.ceil(50 * Math.pow(1.9, S.lvl)); q.gem = Math.random() < 0.3 ? 5 : 0; q.label = q.txt(q.n); delete q.txt;
+  return q;
+}
+while (S.quests.length < 3) S.quests.push(newQuest());
+function progress(k, n, ch, t) { S.quests.forEach(q => { if (q.k === k && (k !== "make" || (q.ch === ch && q.t === t))) q.p = Math.min(q.n, q.p + n); }); renderQuests(); }
+function renderQuests() {
+  const box = document.getElementById("quests");
+  box.innerHTML = S.quests.map((q, i) => `<div class="q ${q.p >= q.n ? "done" : ""}" data-q="${i}"><b>${q.p >= q.n ? "✅ Claim!" : "📜 Quest"}</b>${q.label}<div class="qbar"><i style="width:${q.p / q.n * 100}%"></i></div><small>🪙${G.fmt(q.rw)}${q.gem ? " +" + q.gem + "💎" : ""}</small></div>`).join("");
+  box.querySelectorAll(".q.done").forEach(el => el.onclick = () => {
+    const q = S.quests[+el.dataset.q]; S.coins += q.rw; S.gems += q.gem; S.qDone++; addXp(8); G.sfx("rare");
+    G.toast(`📜 Quest complete! +🪙${G.fmt(q.rw)}${q.gem ? " +" + q.gem + "💎" : ""}`);
+    S.quests[+el.dataset.q] = newQuest(); renderQuests(); hud();
+  });
+}
+
+// ---------- sheets (book / kingdom / shop) ----------
+const sheet = document.getElementById("sheet");
+let sheetTab = "adv";
+function openSheet(kind) {
+  sheet.hidden = false;
+  if (kind === "book") {
+    sheet.innerHTML = `<div class="grab"></div><h2>📖 Discovery Book</h2>` + Object.entries(CHAINS).map(([id, c]) => `<b>${c.name}</b> <small class="note">(${c.what})</small>
+      <div class="chain">${c.items.map(([e, n], t) => `<span class="${S.found[id + t] ? "" : "no"}" title="${S.found[id + t] ? n : "???"}">${e}</span>`).join("")}</div>`).join("") +
+      `<b>Raiders met</b><div class="chain">${RAIDERS.map(r => `<span class="${S.found["r" + r[1]] ? "" : "no"}" title="${r[1]}">${r[0]}</span>`).join("")}</div>
+       <b>Wonders</b> <span class="note">${S.wonders} built · merge two Lv 10s to make one</span>`;
+  } else {
+    const tabs = [["adv", "🧙 Advisors"], ["up", "🔨 Upgrades"], ["shop", "💎 Shop"]];
+    sheet.innerHTML = `<div class="grab"></div><h2>🏛️ ${kname()}</h2><div class="stabs">${tabs.map(([k, l]) => `<button data-st="${k}" aria-selected="${sheetTab === k}">${l}</button>`).join("")}</div><div id="sb"></div>`;
+    sheet.querySelectorAll("[data-st]").forEach(b => b.onclick = () => { sheetTab = b.dataset.st; openSheet("menu"); });
+    const sb = sheet.querySelector("#sb");
+    if (sheetTab === "adv") sb.innerHTML = ADVISORS.map(a => S.adv[a.id] ? `<div class="row"><span class="e">${a.e}</span><div class="info"><b>${a.name}</b><small>${a.desc}</small></div><b>✓</b></div>`
+      : `<div class="row" style="${S.lvl < a.lvl ? "opacity:.55" : ""}"><span class="e">${S.lvl < a.lvl ? "❔" : a.e}</span><div class="info"><b>${S.lvl < a.lvl ? "???" : a.name}</b><small>${S.lvl < a.lvl ? "Arrives at kingdom Lv " + a.lvl : a.desc}</small></div>
+        ${S.lvl >= a.lvl ? `<button class="btn" data-adv="${a.id}" data-cost="${a.cost}">🪙${G.fmt(a.cost)}</button>` : ""}</div>`).join("");
+    if (sheetTab === "up") sb.innerHTML = `<div class="row"><span class="e">🎁</span><div class="info"><b>Lucky Builder · Lv ${S.spawner}</b><small>${S.spawner * 8}% chance Build! makes a Lv 2 item</small></div>
+        ${S.spawner < 10 ? `<button class="btn" id="upSp" data-cost="${spawnerCost()}">🪙${G.fmt(spawnerCost())}</button>` : "<b>MAX</b>"}</div>
+      <div class="row"><span class="e">🗺️</span><div class="info"><b>Land</b><small>${S.unlocked}/${COLS * ROWS} tiles cleared. Tap the 🔒 tile on the board to expand.</small></div></div>
+      <div class="row"><span class="e">🛡️</span><div class="info"><b>Defense</b><small>${G.fmt(defense())} damage/s from towers during raids</small></div></div>`;
+    if (sheetTab === "shop") {
+      const day = G.dailyDay(S);
+      G.renderStore(sb, S, () => openSheet("menu"), `<div class="row"><span class="e">🎁</span><div class="info"><b>Daily chest</b><small>${day ? `Day ${day}/7: ${day * 10} 💎 + full ⚡` : "Back tomorrow · streak " + (S.daily?.streak || 0)}</small></div><button class="btn" id="daily" ${day ? "" : "disabled"}>${day ? "Open" : "✓"}</button></div>
+        <div class="row"><span class="e">⚡</span><div class="info"><b>Energy refill</b><small>Fill to ${eMax()}</small></div><button class="btn gem" id="refill" data-cost="15" data-cur="gems">15 💎</button></div>`);
+      const d = sb.querySelector("#daily"); if (d) d.onclick = () => { const n = G.claimDaily(S); if (!n) return; S.gems += n * 10 + (S.owned.vip ? 50 : 0); S.energy = Math.max(S.energy, eMax()); G.sfx("rare"); document.querySelector("#menuBtn .dot")?.remove(); hud(); openSheet("menu"); };
+      sb.querySelector("#refill").onclick = () => { if (S.gems < 15) return; S.gems -= 15; S.energy = eMax(); hud(); openSheet("menu"); };
+    }
+    sb.querySelectorAll("[data-adv]").forEach(b => b.onclick = () => { const a = ADVISORS.find(x => x.id === b.dataset.adv); if (S.coins < a.cost) return; S.coins -= a.cost; S.adv[a.id] = 1; G.sfx("rare"); G.toast(`${a.e} <b>${a.name}</b> joins your court!`); openSheet("menu"); hud(); });
+    const up = sb.querySelector("#upSp"); if (up) up.onclick = () => { if (S.coins < spawnerCost()) return; S.coins -= spawnerCost(); S.spawner++; G.sfx("up"); openSheet("menu"); hud(); };
+  }
+  hud();
+}
+document.getElementById("bookBtn").onclick = () => openSheet("book");
+document.getElementById("menuBtn").onclick = () => openSheet("menu");
+document.getElementById("spawn").onclick = spawnItem;
+addEventListener("pointerdown", (e) => { if (!sheet.hidden && !sheet.contains(e.target) && !e.target.closest(".side") && !e.target.closest(".gx-backdrop")) sheet.hidden = true; }, true);
+
+// ---------- loop ----------
+let merlinT = 12, drakeT = 2, cpsAcc = 0, fxT = 0;
+function tick(dt) {
+  S.coins += cps() * dt;
+  tickExtras(dt);
+  // energy regen tracks a timestamp so it also refills while the tab is closed
+  if (S.energy < eMax()) { if (!S.eAt) S.eAt = Date.now(); const gained = Math.floor((Date.now() - S.eAt) / 1000 / eEvery()); if (gained > 0) { S.energy = Math.min(eMax(), S.energy + gained); S.eAt = S.energy < eMax() ? S.eAt + gained * eEvery() * 1000 : 0; } } else S.eAt = 0;
+  if (!raidActive) { raidT -= dt; if (raidT <= 0 && S.lvl >= 2) startRaid(); }
+  else {
+    raidAge += dt;
+    if (raidAge > 45) { raiders = {}; G.toast("💨 The raiders escaped with some of your coins. Build Defenses!"); endRaid(false); return; }
+    const def = defense() * dt, keys = Object.keys(raiders);
+    if (def > 0 && keys.length) damageRaider(+keys[0], def);
+    const steal = Math.min(S.coins, S.coins * 0.012 * Object.keys(raiders).length * dt); S.coins -= steal;
+    const rb = document.getElementById("raidbar"); rb.hidden = false; rb.textContent = `⚔️ RAID · ${Object.keys(raiders).length} left · ${Math.ceil(45 - raidAge)}s`;
+  }
+  if (S.adv.merlin) { merlinT -= dt; if (merlinT <= 0) { merlinT = 12; autoMerge(); } }
+  if (S.adv.drake && raidActive) { drakeT -= dt; if (drakeT <= 0) { drakeT = 2; const k = Object.keys(raiders); if (k.length) { const i = +k[Math.random() * k.length | 0]; damageRaider(i, raiders[i].max * 0.5); } } }
+  fxT -= dt; if (fxT <= 0) { fxT = 1.5; coinFx(); }
+}
+function autoMerge() {
+  for (let a = 0; a < S.grid.length; a++) for (let b = a + 1; b < S.grid.length; b++) {
+    const x = S.grid[a], y = S.grid[b];
+    if (x && y && x[0] === y[0] && x[1] === y[1] && x[0] !== "wonder" && x[1] < 9) { merge(a, b); G.toast("🧙 Merlin merged a pair!", 1400); return; }
+  }
+}
+function coinFx() {
+  const homes = S.grid.map((c, i) => c && c[0] === "home" ? i : -1).filter(i => i >= 0);
+  if (!homes.length) return; const i = homes[Math.random() * homes.length | 0], cell = board.children[i];
+  if (!cell) return; const f = G.el("span", "coinfx", "+" + G.fmt(homeRate(S.grid[i][1]) * 1.5 * (S.adv.ada ? 1.5 : 1))); cell.appendChild(f); setTimeout(() => f.remove(), 1000);
+}
+function hud() {
+  document.getElementById("coins").textContent = G.fmt(S.coins);
+  document.getElementById("cps").textContent = "+" + G.fmt(cps()) + "/s";
+  document.getElementById("energy").textContent = `${S.energy}/${eMax()}`;
+  const left = S.energy < eMax() && S.eAt ? Math.max(0, eEvery() - (Date.now() - S.eAt) / 1000) : 0;
+  document.getElementById("etimer").textContent = left ? G.time(left) : "";
+  document.getElementById("gems").textContent = G.fmt(S.gems);
+  document.getElementById("kname").textContent = kname();
+  document.getElementById("klv").textContent = "Lv " + S.lvl;
+  document.getElementById("kxp").style.width = (S.xp / xpNeed() * 100) + "%";
+  document.getElementById("spawn").disabled = S.energy < 1;
+  const lockCell = board.children[S.unlocked]; if (lockCell) lockCell.style.filter = S.coins >= unlockCost() ? "none" : "grayscale(.5)";
+  sheet.querySelectorAll("[data-cost]").forEach(b => b.disabled = S[b.dataset.cur || "coins"] < +b.dataset.cost);
+  const menu = document.getElementById("menuBtn"); if (G.dailyDay(S) && !menu.querySelector(".dot")) menu.insertAdjacentHTML("beforeend", '<i class="dot"></i>');
+}
+let last = performance.now(), hudT = 0;
+function frame(t) { const dt = Math.min(0.25, (t - last) / 1000); last = t; tick(dt); if (view3d) { Kingdom3D.sync(S.grid, S.unlocked, raiders); Kingdom3D.draw(t, dt); } hudT -= dt; if (hudT <= 0) { hudT = 0.25; hud(); } requestAnimationFrame(frame); }
+
+// ---------- boot ----------
+const away = G.awaySeconds(S, S.owned.vip ? 24 : 8);
+if (away > 60 && cps() > 0) {
+  const got = cps() * away * (S.owned.vip ? 1 : 0.5);
+  G.modal("Your subjects were busy!", `<div style="font-size:3rem">🏰💰</div><p>While you were away (${G.time(away)}), your homes earned</p><p style="font-size:1.5rem"><b>🪙 ${G.fmt(got)}</b></p>`,
+    [{ label: "Collect", onClick: () => { S.coins += got; hud(); } }, { label: "2× · 10 💎", cls: "gem", onClick: () => { if (S.gems >= 10) { S.gems -= 10; S.coins += got * 2; } else S.coins += got; hud(); } }]);
+} else if (!S.merges) {
+  G.modal("Merge Kingdom", `<div style="font-size:3rem">⛺ + ⛺ = 🛖</div><p>Your kingdom is a muddy field with two tents.</p><p><b>Drag one tent onto the other</b> to merge them. Tap <b>🎁 Build!</b> for more. Homes make coins, farms make energy, defenses stop raiders.</p>`, [{ label: "Let's build" }]);
+}
+G.autosave(KEY, () => S);
+// ---------- 3D view ----------
+let view3d = false;
+const k3d = document.getElementById("k3d");
+function layout3d() { if (view3d) requestAnimationFrame(() => Kingdom3D.layout(k3d, board.children[0], board.children[COLS * ROWS - 1])); }
+function start3d() {
+  document.body.classList.add("k3d"); Kingdom3D.init(k3d, COLS, ROWS); view3d = true; layout3d(); showNext();
+  new ResizeObserver(layout3d).observe(board);
+}
+if (window.Kingdom3D) start3d(); else addEventListener("kingdom3d-ready", start3d, { once: true });
+if (!S.next) rollNext(); else showNext();
+renderBoard(); renderQuests(); hud(); requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Slime Slayer</title>
+<meta name="description" content="Tap-and-idle RPG: slay monsters, recruit a legendary party, choose your path, loot gear, rebirth stronger.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Alegreya+Sans:wght@500;800&display=swap">
+<style>
+  /* Slime Slayer — storybook JRPG: midnight purple, gilded frames, Cinzel capitals, jewel-toned rarity. */
+  :root { --night: #1a1030; --plum: #2c1a4d; --gold: #f2c14e; --gold-d: #b8862b; --parch: #f6ecd6; --ink: #2a1c10; --text: #efe6ff; --dim: #a898c8;
+          --common: #b0b0b0; --rare: #4aa3ff; --epic: #b565ff; --legendary: #ffb000; --mythic: #ff4f6d; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--night) radial-gradient(ellipse at top, #3d2566, var(--night) 70%); color: var(--text); font: 500 15px/1.35 "Alegreya Sans", system-ui, sans-serif; overscroll-behavior: none; }
+  h1, h2, h3, .cz, .gx-title, .tabs button { font-family: "Cinzel", Georgia, serif; font-weight: 700; }
+  .app { max-width: 480px; margin: 0 auto; }
+  .top { display: flex; gap: 6px; padding: 10px; align-items: center; }
+  .res { display: flex; gap: 5px; align-items: center; padding: 3px 10px; border-radius: 999px; background: rgba(0,0,0,.35); border: 1px solid rgba(242,193,78,.35); font-weight: 800; }
+  .back { color: var(--dim); text-decoration: none; }
+  .spacer { flex: 1; }
+  .stagebar { text-align: center; padding: 0 10px 6px; }
+  .stagebar .cz { font-size: 1.05rem; color: var(--gold); letter-spacing: .08em; }
+  .waves { display: flex; justify-content: center; gap: 5px; margin-top: 4px; }
+  .waves i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--gold-d); background: transparent; }
+  .waves i.done { background: var(--gold); } .waves i.cur { box-shadow: 0 0 8px var(--gold); background: rgba(242,193,78,.4); }
+  .waves i.boss { border-radius: 3px; transform: rotate(45deg); border-color: var(--mythic); }
+  #c3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .scene.is3d { height: 340px; }
+  .combo { position: absolute; left: 12px; bottom: 64px; z-index: 3; font: 900 1.3rem "Cinzel"; color: #fff; text-shadow: 0 2px 0 #000, 0 0 12px var(--gold); transform: scale(var(--s, 1)); transform-origin: left bottom; pointer-events: none; }
+  .lootbtn { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 4; animation: pulse .7s ease-in-out infinite alternate; }
+  @keyframes pulse { to { transform: translateX(-50%) scale(1.08); } }
+  .scene.is3d::after, .scene.is3d .hero, .scene.is3d .party, .scene.is3d .mon .body { display: none; }
+  .scene.is3d .mon { top: 44px; bottom: auto; right: 12px; }
+  .scene.is3d .monname { font-size: .95rem; }
+  .scene.is3d .buff, .scene.is3d .timer, .scene.is3d .fightboss, .scene.is3d .mon { z-index: 3; }
+  .scene { position: relative; height: 290px; margin: 0 10px; border-radius: 18px; overflow: hidden; cursor: pointer; touch-action: manipulation;
+           border: 3px solid var(--gold); box-shadow: 0 0 0 3px var(--night), 0 0 0 5px var(--gold-d), 0 10px 30px rgba(0,0,0,.5); background: var(--bg); transition: background .6s; }
+  .scene::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 70px; background: var(--ground); }
+  .hero { position: absolute; left: 14%; bottom: 58px; font-size: 3.4rem; z-index: 2; transition: transform .08s; filter: drop-shadow(0 4px 0 rgba(0,0,0,.3)); }
+  .hero.atk { transform: translateX(30px) rotate(12deg); }
+  .party { position: absolute; left: 2%; bottom: 60px; display: flex; flex-direction: column-reverse; flex-wrap: wrap; height: 150px; gap: 2px; z-index: 1; font-size: 1.6rem; }
+  .party span { animation: hop 1.2s ease-in-out infinite; animation-delay: calc(var(--i) * .15s); }
+  @keyframes hop { 50% { transform: translateY(-5px); } }
+  .mon { position: absolute; right: 12%; bottom: 58px; z-index: 2; text-align: center; transition: transform .1s; }
+  .mon .body { font-size: 5.2rem; line-height: 1; display: inline-block; animation: idle 1.6s ease-in-out infinite; filter: drop-shadow(0 6px 0 rgba(0,0,0,.25)); }
+  .mon.boss .body { font-size: 7rem; }
+  .mon.hit .body { filter: brightness(2.5) drop-shadow(0 0 10px #fff); }
+  @keyframes idle { 50% { transform: scale(1.05, .95) translateY(3px); } }
+  .slime { width: 96px; height: 76px; border-radius: 50% 50% 42% 42% / 64% 64% 36% 36%; background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.6), transparent 30%), var(--c);
+           position: relative; box-shadow: inset -8px -10px 0 rgba(0,0,0,.18); display: inline-block; }
+  .slime::before, .slime::after { content: ""; position: absolute; top: 28px; width: 12px; height: 16px; border-radius: 50%; background: #1a1030; }
+  .slime::before { left: 28px; } .slime::after { right: 28px; }
+  .boss .slime { width: 140px; height: 110px; }
+  .boss .slime::before, .boss .slime::after { top: 42px; }
+  .crown { position: absolute; top: -34px; left: 50%; transform: translateX(-50%); font-size: 2.4rem; }
+  .monname { font-family: "Cinzel"; font-size: .85rem; color: #fff; text-shadow: 0 1px 3px #000; margin-bottom: 2px; }
+  .hpbar { width: 130px; height: 10px; margin: 0 auto 6px; background: rgba(0,0,0,.5); border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,.3); }
+  .hpbar i { display: block; height: 100%; background: linear-gradient(#ff7a7a, #d62f4b); transition: width .08s; }
+  .timer { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-family: "Cinzel"; font-weight: 900; color: #fff; background: var(--mythic); padding: 2px 12px; border-radius: 999px; z-index: 3; font-size: .9rem; }
+  .fightboss { position: absolute; top: 10px; right: 10px; z-index: 4; }
+  .buff { position: absolute; top: 10px; left: 10px; z-index: 3; display: flex; gap: 4px; font-size: 1.2rem; }
+  .buff span { background: rgba(0,0,0,.45); border-radius: 8px; padding: 0 4px; }
+  .dps { text-align: center; color: var(--dim); font-size: .85rem; margin: 6px 0 0; }
+  .skills { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px; }
+  .sk { position: relative; overflow: hidden; border-radius: 14px; border: 2px solid var(--gold-d); background: linear-gradient(#4a2d7a, #2c1a4d); color: var(--text); padding: 6px 2px; min-height: 62px; cursor: pointer; font: 800 .7rem "Alegreya Sans"; }
+  .sk .e { display: block; font-size: 1.5rem; }
+  .sk:disabled { cursor: default; }
+  .sk.locked { filter: grayscale(1); opacity: .5; }
+  .sk .cd { position: absolute; inset: 0; background: rgba(10,5,20,.7); transform-origin: bottom; transform: scaleY(var(--p, 0)); pointer-events: none; }
+  .sk.on { border-color: var(--gold); box-shadow: 0 0 14px var(--gold); }
+  .tabs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; padding: 0 10px; }
+  .tabs button { font-size: .66rem; letter-spacing: .02em; border: 0; border-radius: 10px 10px 0 0; padding: 9px 1px; background: rgba(0,0,0,.3); color: var(--dim); cursor: pointer; position: relative; }
+  .tabs button span { display: block; font-size: 1.1rem; }
+  .tabs button[aria-selected="true"] { background: var(--parch); color: var(--ink); }
+  .tabs .dot { position: absolute; top: 3px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--mythic); }
+  .panel { background: var(--parch); color: var(--ink); margin: 0 10px 20px; padding: 10px; border-radius: 0 0 16px 16px; min-height: 260px; border: 2px solid var(--gold-d); border-top: 0; }
+  .row { display: flex; gap: 10px; align-items: center; padding: 8px; border-bottom: 1px solid rgba(42,28,16,.12); }
+  .row .e { font-size: 1.9rem; width: 42px; text-align: center; }
+  .row .info { flex: 1; min-width: 0; } .row b { font-family: "Cinzel"; } .row small { display: block; color: #6b5a44; font-size: .8rem; }
+  .btn { font: 800 .85rem "Alegreya Sans"; padding: 7px 10px; min-width: 86px; border-radius: 10px; border: 2px solid var(--gold-d); background: linear-gradient(#ffe08a, var(--gold)); color: var(--ink); cursor: pointer; box-shadow: 0 3px 0 var(--gold-d); }
+  .btn:disabled { filter: grayscale(.9); opacity: .55; cursor: default; box-shadow: none; }
+  .btn.gem { background: linear-gradient(#b3f0ff, #5fd0ff); border-color: #2a8fb8; box-shadow: 0 3px 0 #2a8fb8; }
+  .multi { display: flex; gap: 4px; justify-content: flex-end; margin: 0 0 6px; } .multi button { font: 800 .75rem "Alegreya Sans"; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--gold-d); background: transparent; color: var(--ink); cursor: pointer; }
+  .multi button[aria-pressed="true"] { background: var(--gold); }
+  .note { color: #6b5a44; font-size: .82rem; margin: 6px 4px; }
+  .gear { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .slot { border: 2px solid var(--r, #ccc); border-radius: 12px; padding: 8px; text-align: center; background: #fff; }
+  .slot .e { font-size: 2rem; } .slot b { display: block; font-size: .78rem; color: var(--r); } .slot small { font-size: .72rem; color: #6b5a44; }
+  .path { border: 2px solid var(--gold-d); border-radius: 14px; padding: 12px; margin-bottom: 8px; background: #fff; }
+  .path.chosen { background: #fff4d0; box-shadow: 0 0 0 3px var(--gold); }
+  .gx-toasts { position: fixed; top: 54px; left: 50%; transform: translateX(-50%); z-index: 90; display: grid; gap: 6px; width: min(92vw, 420px); pointer-events: none; }
+  .gx-toast { background: rgba(26,16,48,.95); border: 2px solid var(--gold); color: var(--text); border-radius: 12px; padding: 8px 12px; text-align: center; animation: tin .25s; }
+  .gx-toast.out { opacity: 0; transition: opacity .4s; }
+  @keyframes tin { from { opacity: 0; transform: translateY(-12px); } }
+  .gx-backdrop { position: fixed; inset: 0; background: rgba(10,5,20,.75); display: grid; place-items: center; z-index: 95; padding: 16px; }
+  .gx-modal { width: min(100%, 380px); background: var(--parch); color: var(--ink); border: 3px solid var(--gold); border-radius: 18px; padding: 20px; text-align: center; box-shadow: 0 0 0 4px var(--night), 0 0 0 6px var(--gold-d), 0 20px 50px rgba(0,0,0,.6); animation: tin .25s; }
+  .gx-title { margin: 0 0 8px; font-size: 1.35rem; color: var(--plum); }
+  .gx-body p { margin: 6px 0; } .gx-demo { font-size: .75rem; color: #6b5a44; }
+  .gx-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+  .gx-btn { font: 800 .95rem "Alegreya Sans"; padding: 10px 18px; border-radius: 12px; border: 2px solid var(--gold-d); background: linear-gradient(#ffe08a, var(--gold)); color: var(--ink); cursor: pointer; box-shadow: 0 3px 0 var(--gold-d); }
+  .gx-btn.ghost { background: #fff; } .gx-btn.gem { background: linear-gradient(#b3f0ff, #5fd0ff); border-color: #2a8fb8; }
+  .gx-product { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 12px; border: 2px solid var(--gold-d); border-radius: 14px; margin-bottom: 10px; background: #fff; }
+  .gx-product b { font-family: "Cinzel"; } .gx-product small { color: #6b5a44; margin-bottom: 6px; } .gx-product.owned { opacity: .55; } .gx-product .gx-btn { align-self: flex-start; }
+  .gx-badge { position: absolute; top: -10px; right: 10px; background: var(--mythic); color: #fff; font: 800 .65rem "Alegreya Sans"; padding: 2px 8px; border-radius: 999px; }
+  .gx-float { position: fixed; z-index: 60; pointer-events: none; font: 900 1.2rem "Cinzel"; color: #fff; text-shadow: 0 2px 0 #000, 0 0 8px rgba(0,0,0,.6); animation: fl .8s forwards; transform: translate(-50%, -50%); }
+  .gx-float.crit { color: var(--gold); font-size: 1.8rem; } .gx-float.gold { color: var(--gold); font-size: 1rem; }
+  @keyframes fl { to { transform: translate(-50%, -170%); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <a class="back" href="../index.html">◀</a>
+    <div class="res">🪙 <span id="gold">0</span></div>
+    <div class="res">💎 <span id="gems">0</span></div>
+    <div class="res" title="Soul Shards: each one ×1.05 damage and gold">🔮 <span id="shards">0</span></div>
+    <span class="spacer"></span>
+  </div>
+  <div class="stagebar"><div class="cz" id="stageName"></div><div class="waves" id="waves"></div></div>
+  <div class="scene" id="scene">
+    <canvas id="c3d" aria-hidden="true"></canvas>
+    <div class="buff" id="buffs"></div>
+    <div class="combo" id="combo" hidden></div>
+    <button class="btn lootbtn" id="lootBtn" hidden>🧰 Open loot chest!</button>
+    <div class="timer" id="timer" hidden></div>
+    <button class="btn fightboss" id="fightBoss" hidden>⚔️ Fight Boss</button>
+    <div class="party" id="party"></div>
+    <div class="hero" id="hero">🤺</div>
+    <div class="mon" id="mon"><div class="monname" id="monName"></div><div class="hpbar"><i id="hp"></i></div><div class="body" id="monBody"></div></div>
+  </div>
+  <p class="dps" id="dps"></p>
+  <div class="skills" id="skills"></div>
+  <nav class="tabs" id="tabs">
+    <button data-t="hero"><span>🤺</span>Hero</button><button data-t="party"><span>👥</span>Party</button><button data-t="gear"><span>🗡️</span>Armory</button>
+    <button data-t="path"><span>🧭</span>Path</button><button data-t="rebirth"><span>🔮</span>Rebirth</button><button data-t="shop"><span>💎</span>Shop</button>
+  </nav>
+  <section class="panel" id="panel"></section>
+</div>
+<script type="module" src="slime3d.js"></script>
+<script src="../shared/engine.js"></script>
+<script>
+const G = Grind, KEY = "slimeslayer-v1";
+// ---------- content ----------
+// Monsters: [name, colour, material kind, accessory]. slime3d.js turns each into a jelly-physics slime.
+const BIOMES = [
+  { name: "Gloop Meadow", bg: "linear-gradient(#8fd3ff, #d6f5ff)", ground: "linear-gradient(#6fcf5a, #3f9a3a)", mons: [["Green Slime", "#57d64a", "jelly"], ["Blue Slime", "#3fa8ff", "jelly"], ["Pink Slime", "#ff6fc8", "jelly"], ["Honey Slime", "#ffb81f", "jelly"]], boss: ["King Slime", "#34c22a", "jelly", "crown"] },
+  { name: "Whisperwood", bg: "linear-gradient(#2f5d3a, #6d9b5a)", ground: "linear-gradient(#3c2a1a, #251709)", mons: [["Moss Slime", "#5f8a3a", "moss"], ["Spore Slime", "#e8d8c0", "jelly", "mushroom"], ["Acorn Slime", "#c89a5a", "moss", "acorn"], ["Fern Slime", "#2f9a4a", "jelly"]], boss: ["Elder Mossking", "#4a7a2a", "moss", "crown"] },
+  { name: "Bonecrypt", bg: "linear-gradient(#1a1a2e, #3a3a5a)", ground: "linear-gradient(#4a4a5a, #2a2a3a)", mons: [["Ghost Slime", "#dfe8ff", "ghost"], ["Bone Slime", "#9fd8c8", "jelly", "skull"], ["Grave Slime", "#6a7a5a", "moss"], ["Bat Slime", "#5a3a6a", "jelly", "wings"]], boss: ["Count Slimula", "#8a1030", "jelly", "cape"] },
+  { name: "Emberpeak", bg: "linear-gradient(#5a1a0a, #d9480f)", ground: "linear-gradient(#2a0a05, #120300)", mons: [["Magma Slime", "#ff5a10", "lava"], ["Obsidian Slime", "#111111", "obsidian"], ["Ember Slime", "#ff8a2a", "jelly", "horns"], ["Cinder Slime", "#ff5a10", "lava", "horns"]], boss: ["The Pyre King", "#ff4a10", "lava", "crown"] },
+  { name: "Frostveil", bg: "linear-gradient(#a8d8f0, #eaf7ff)", ground: "linear-gradient(#ffffff, #cfe6f5)", mons: [["Ice Slime", "#bfe8ff", "ice"], ["Snow Slime", "#ffffff", "snow"], ["Frost Slime", "#7fc8ff", "jelly"], ["Glacier Slime", "#8fd0f0", "ice", "horns"]], boss: ["Glacier Titan", "#a8e0ff", "ice", "crown"] },
+  { name: "Skyreach", bg: "linear-gradient(#ffb36b, #ffe4b8)", ground: "linear-gradient(#ffffff, #f0e6ff)", mons: [["Cloud Slime", "#ffffff", "cloud"], ["Storm Slime", "#6a7aff", "storm", "bolt"], ["Sunset Slime", "#ff9a5a", "jelly"], ["Zephyr Slime", "#a8f0e0", "cloud", "wings"]], boss: ["Sky Sovereign", "#ffd23f", "storm", "crown"] },
+  { name: "The Void", bg: "linear-gradient(#050010, #2a0050)", ground: "linear-gradient(#150030, #000)", mons: [["Void Slime", "#9b5cff", "void"], ["Star Slime", "#3a1a6a", "jelly", "stars"], ["Rift Slime", "#ff4fd8", "void"], ["Eye Slime", "#5a2a8a", "void", "eye"]], boss: ["The Hollow King", "#6a2aff", "void", "crown"] },
+];
+const PARTY = [
+  { id: "tom", e: "🧑‍🌾", name: "Squire Tom", cost: 50, dps: 4, at: 1, hi: "Sir! I brought my pitchfork!" },
+  { id: "lyra", e: "🏹", name: "Archer Lyra", cost: 450, dps: 27, at: 3, hi: "I never miss. Well. Rarely." },
+  { id: "pim", e: "🧙", name: "Mage Pim", cost: 4050, dps: 182, at: 6, hi: "Stand back, I'm doing magic!" },
+  { id: "bo", e: "🧝‍♀️", name: "Cleric Bo", cost: 36450, dps: 1230, at: 10, hi: "I'll patch you up. You'll owe me." },
+  { id: "rhea", e: "🛡️", name: "Knight Rhea", cost: 3.3e5, dps: 8300, at: 15, hi: "My shield is your shield." },
+  { id: "kai", e: "🥷", name: "Shadow Kai", cost: 3e6, dps: 56000, at: 20, hi: "…" },
+  { id: "ember", e: "🐉", name: "Ember the Whelp", cost: 2.7e7, dps: 3.8e5, at: 30, hi: "*happy smoke noises*" },
+  { id: "azra", e: "🧞", name: "Djinn Azra", cost: 2.4e8, dps: 2.5e6, at: 45, hi: "Three wishes? Try three thousand hits." },
+  { id: "nova", e: "👼", name: "Seraph Nova", cost: 2.2e9, dps: 1.7e7, at: 60, hi: "The light remembers you." },
+  { id: "eon", e: "🌌", name: "Starborn Eon", cost: 2e10, dps: 1.15e8, at: 80, hi: "I was born when the first star died." },
+];
+const SKILLS = [
+  { id: "strike", e: "💥", name: "Power Strike", lvl: 10, cd: 30, dur: 0 },
+  { id: "cry", e: "📯", name: "War Cry", lvl: 25, cd: 60, dur: 15 },
+  { id: "rush", e: "💰", name: "Gold Rush", lvl: 40, cd: 90, dur: 20 },
+  { id: "storm", e: "⚡", name: "Storm", lvl: 60, cd: 120, dur: 10 },
+];
+const PATHS = {
+  paladin: { e: "🛡️", hero: "🦸", name: "Paladin", desc: "Tap damage ×3, crit damage ×2. For those who like to click." },
+  ranger: { e: "🏹", hero: "🧝", name: "Ranger", desc: "Party damage ×3. Let your friends do the work." },
+  sorcerer: { e: "🔮", hero: "🧙‍♂️", name: "Sorcerer", desc: "Skills recharge 40% faster and hit ×2. Gold ×1.5." },
+};
+const RAR = [["common", 1, 60], ["rare", 2.5, 27], ["epic", 6, 10], ["legendary", 15, 2.6], ["mythic", 40, 0.4]];
+const SLOTS = { weapon: ["🗡️", "Tap dmg", ["Rusty Blade", "Moonsteel Saber", "Dragonfang", "Excalibur-ish", "Blade of Ends"]],
+  armor: ["🛡️", "Party dmg", ["Leather Vest", "Knight's Mail", "Wyrmscale Plate", "Aegis of Dawn", "Void Carapace"]],
+  charm: ["📿", "Gold", ["Lucky Pebble", "Silver Locket", "Phoenix Feather", "Star Sapphire", "Eye of Eternity"]] };
+
+const DEF = { gold: 0, gems: 25, shards: 0, stage: 1, wave: 1, maxStage: 1, bestEver: 1, hero: 1, party: {}, met: {}, path: "", gear: {}, gearLog: {}, cds: {}, owned: {}, kills: 0, rebirths: 0, farming: false };
+const S = G.load(KEY, DEF);
+
+// ---------- math ----------
+const biome = (s = S.stage) => BIOMES[Math.floor((s - 1) / 10) % BIOMES.length];
+const loop = (s = S.stage) => Math.floor((s - 1) / (10 * BIOMES.length));
+const hpOf = (s) => Math.ceil(8 * Math.pow(1.5, s - 1));
+const shardMult = () => Math.pow(1.05, S.shards);
+const gearB = (slot) => S.gear[slot] ? S.gear[slot].v : 0;
+let until = {};
+const on = (id) => (until[id] || 0) > performance.now();
+const pathIs = (p) => S.path === p;
+const tapDmg = () => S.hero * Math.pow(1.3, Math.floor(S.hero / 10)) * shardMult() * (1 + gearB("weapon")) * (pathIs("paladin") ? 3 : 1);
+const pDps = (p) => { const l = S.party[p.id] || 0; return p.dps * l * Math.pow(2, Math.floor(l / 25)); };
+const partyDps = () => PARTY.reduce((a, p) => a + pDps(p), 0) * shardMult() * (1 + gearB("armor")) * (pathIs("ranger") ? 3 : 1) * (on("cry") ? 3 : 1) * (S.owned.starter ? 2 : 1);
+const goldMult = () => shardMult() * (1 + gearB("charm")) * (pathIs("sorcerer") ? 1.5 : 1) * (on("rush") ? 3 : 1) * (S.owned.starter ? 2 : 1);
+const heroCost = (l = S.hero) => Math.ceil(5 * Math.pow(1.085, l));
+const pCost = (p, l = S.party[p.id] || 0) => Math.ceil(p.cost * Math.pow(1.07, l));
+const skillCd = (s) => s.cd * (pathIs("sorcerer") ? 0.6 : 1);
+const pendingShards = () => Math.max(0, Math.floor(1.5 * (S.maxStage - 25)));
+
+// ---------- monster ----------
+let mon = null, bossT = 0;
+function spawn() {
+  const b = biome(), boss = S.wave === 10 && !S.farming, i = (S.stage * 7 + S.wave * 3) % b.mons.length;
+  const [name, look, kind, acc] = boss ? b.boss : b.mons[i];
+  const max = hpOf(S.stage) * (boss ? 8 : 1);
+  const golden = !boss && S.kills > 5 && Math.random() < 0.03; // rare Golden Slime: tougher, pays 10× gold + gems
+  mon = { name: (golden ? "✨ Golden Slime" : (loop() ? "✦".repeat(Math.min(loop(), 3)) + " " : "") + name), look, boss, golden, hp: max * (golden ? 3 : 1), max: max * (golden ? 3 : 1) };
+  if (golden) { G.toast("✨ A <b>Golden Slime</b> appeared! Get it!"); G.sfx("rare"); }
+  bossT = boss ? 30 : 0;
+  const el = document.getElementById("mon"), body = document.getElementById("monBody");
+  el.classList.toggle("boss", boss);
+  body.innerHTML = look.startsWith("#") ? `<span class="slime" style="--c:${look}">${boss ? '<span class="crown">👑</span>' : ""}</span>` : look;
+  document.getElementById("monName").textContent = (boss ? "👑 " : "") + mon.name;
+  document.getElementById("stageName").textContent = `${b.name} · Stage ${S.stage}`;
+  const sc = document.getElementById("scene"); sc.style.setProperty("--bg", b.bg); sc.style.setProperty("--ground", b.ground);
+  document.getElementById("waves").innerHTML = Array.from({ length: 10 }, (_, k) => `<i class="${k + 1 < S.wave ? "done" : k + 1 === S.wave ? "cur" : ""} ${k === 9 ? "boss" : ""}"></i>`).join("");
+  document.getElementById("timer").hidden = !boss;
+  document.getElementById("fightBoss").hidden = !S.farming;
+  show3dMonster();
+}
+// 3D view (slime3d.js). The DOM monster stays as a fallback until the 3D module has loaded.
+let view3d = false;
+const biomeIndex = () => Math.floor((S.stage - 1) / 10) % BIOMES.length;
+function show3dMonster() {
+  if (!view3d || !mon) return;
+  const b = biome(), boss = mon.boss, i = (S.stage * 7 + S.wave * 3) % b.mons.length, [, color, kind, acc] = boss ? b.boss : b.mons[i];
+  Slime3D.setBiome(biomeIndex()); Slime3D.setMonster({ color, kind, acc, boss, golden: mon.golden });
+}
+function start3d() {
+  Slime3D.init(document.getElementById("c3d")); view3d = true;
+  document.getElementById("scene").classList.add("is3d"); show3dMonster(); renderParty();
+}
+if (window.Slime3D) start3d(); else addEventListener("slime3d-ready", start3d, { once: true });
+function damage(n, crit, x, y) {
+  if (!mon) return;
+  mon.hp -= n;
+  if (x != null) G.float(x, y, (crit ? "CRIT " : "") + G.fmt(n), crit ? "crit" : "");
+  if (mon.hp <= 0) kill();
+}
+function kill() {
+  const g = Math.ceil(hpOf(S.stage) / 6 * (mon.boss ? 5 : mon.golden ? 10 : 1) * goldMult());
+  S.gold += g; S.kills++; G.sfx("coin");
+  if (mon.golden) { const gem = 2 + (Math.random() * 4 | 0); S.gems += gem; G.toast(`✨ Golden Slime slain! +${gem} 💎`); }
+  if (view3d) Slime3D.kill(mon.boss);
+  const r = document.getElementById("mon").getBoundingClientRect(); G.float(r.left + r.width / 2, r.top + 20, "+" + G.fmt(g) + " 🪙", "gold");
+  if (mon.boss) {
+    G.sfx("rare"); S.stage++; S.wave = 1; S.maxStage = Math.max(S.maxStage, S.stage); S.bestEver = Math.max(S.bestEver, S.stage);
+    showChest();
+    if (S.stage % 10 === 1) { G.toast(`🗺️ New land: <b>${biome().name}</b>`, 2600); S.gems += 10; }
+    PARTY.forEach(p => { if (S.stage >= p.at && !S.met[p.id]) { S.met[p.id] = 1; G.modal(`${p.e} ${p.name} wants to join!`, `<div style="font-size:3.5rem">${p.e}</div><p><i>"${p.hi}"</i></p><p>Recruit them in the Party tab.</p>`, [{ label: "Welcome aboard!", onClick: () => { tab = "party"; render(); } }]); } });
+    if (S.stage === 26 && !S.path) G.modal("🧭 Choose your path", "<p>You've grown strong enough to specialise. Open the <b>Path</b> tab to choose Paladin, Ranger or Sorcerer.</p>", [{ label: "Show me", onClick: () => { tab = "path"; render(); } }]);
+    if (S.stage === 31) G.toast("🔮 <b>Rebirth unlocked!</b> Check the Rebirth tab.", 3200);
+    [10, 25, 50, 100].forEach(m => S.stage === m + 1 && G.achieve(S, "st" + m, `Reached stage ${m}`, m, g => S.gems += g));
+  } else if (!S.farming) S.wave++;
+  spawn();
+}
+
+// Boss loot chest: tap to open for a guaranteed gear drop and a gold bonus.
+let lootOpen = false;
+function showChest() { lootOpen = true; document.getElementById("lootBtn").hidden = false; if (view3d) Slime3D.setChest(true); }
+document.getElementById("lootBtn").onclick = (e) => {
+  e.stopPropagation(); if (!lootOpen) return; lootOpen = false; document.getElementById("lootBtn").hidden = true;
+  if (view3d) Slime3D.setChest(false);
+  const g = Math.ceil(hpOf(S.stage) * 1.5 * goldMult()); S.gold += g; G.sfx("rare"); G.toast(`🧰 Loot: 🪙${G.fmt(g)}`); dropGear();
+};
+setInterval(() => { if (performance.now() - comboAt > 900) document.getElementById("combo").hidden = true; }, 300);
+function dropGear() {
+  const slot = Object.keys(SLOTS)[Math.random() * 3 | 0];
+  let roll = Math.random() * 100, ri = 0; for (let i = 0; i < RAR.length; i++) { roll -= RAR[i][2]; if (roll < 0) { ri = i; break; } }
+  const [rar, pow] = RAR[ri], name = SLOTS[slot][2][ri], v = +(pow * 0.25 * (1 + S.stage / 10)).toFixed(2);
+  S.gearLog[name] = true;
+  const cur = S.gear[slot], better = !cur || v > cur.v;
+  if (better) S.gear[slot] = { name, rar, v };
+  G.sfx(ri >= 3 ? "rare" : "coin");
+  G.toast(`${SLOTS[slot][0]} <b style="color:var(--${rar})">${name}</b> (${rar}) · +${Math.round(v * 100)}% ${SLOTS[slot][1]}${better ? " · <b>EQUIPPED</b>" : " · salvaged"}`, 3200);
+  if (!better) S.gold += hpOf(S.stage) * 2;
+}
+
+// ---------- input ----------
+const scene = document.getElementById("scene"), heroEl = document.getElementById("hero");
+scene.addEventListener("pointerdown", (e) => { if (e.target.closest("button")) return; tap(e.clientX, e.clientY); });
+let combo = 0, comboAt = 0;
+function tap(x, y) {
+  const now = performance.now(); combo = now - comboAt < 650 ? combo + 1 : 1; comboAt = now;
+  const cEl = document.getElementById("combo"); cEl.hidden = combo < 5; cEl.textContent = `Combo ×${combo}`; cEl.style.setProperty("--s", 1 + Math.min(combo, 60) / 120);
+  const crit = Math.random() < 0.1, dmg = tapDmg() * (crit ? (pathIs("paladin") ? 8 : 4) : 1) * (1 + Math.min(combo, 100) / 100); // up to 2× for long combos
+  damage(dmg, crit, x, y); G.sfx(crit ? "hit" : "tap");
+  heroEl.classList.add("atk"); setTimeout(() => heroEl.classList.remove("atk"), 80);
+  if (view3d) Slime3D.attack(crit);
+  const m = document.getElementById("mon"); m.classList.add("hit"); setTimeout(() => m.classList.remove("hit"), 70);
+}
+document.getElementById("fightBoss").onclick = () => { S.farming = false; S.wave = 10; spawn(); };
+addEventListener("keydown", (e) => { if (e.code === "Space" && !document.querySelector(".gx-backdrop")) { e.preventDefault(); const r = document.getElementById("mon").getBoundingClientRect(); tap(r.left + r.width / 2, r.top + 30); } });
+
+// ---------- skills ----------
+function renderSkills() {
+  const box = document.getElementById("skills"); box.innerHTML = "";
+  SKILLS.forEach(s => {
+    const lock = S.hero < s.lvl;
+    const b = G.el("button", "sk" + (lock ? " locked" : ""), `<span class="e">${lock ? "🔒" : s.e}</span>${lock ? "Hero Lv " + s.lvl : s.name}<span class="cd"></span>`);
+    b.dataset.id = s.id; b.onclick = () => useSkill(s); box.appendChild(b);
+  });
+}
+function useSkill(s) {
+  if (S.hero < s.lvl || (S.cds[s.id] || 0) > Date.now()) return;
+  S.cds[s.id] = Date.now() + skillCd(s) * 1000; G.sfx("up");
+  const pow = pathIs("sorcerer") ? 2 : 1;
+  if (s.id === "strike") { const r = document.getElementById("mon").getBoundingClientRect(); damage(tapDmg() * 50 * pow, true, r.left + r.width / 2, r.top); G.shake(scene, 10); }
+  else until[s.id] = performance.now() + s.dur * 1000 * pow;
+}
+
+// ---------- loop ----------
+let last = performance.now(), uiT = 0, stormAcc = 0;
+function frame(t) {
+  const dt = Math.min(0.1, (t - last) / 1000); last = t;
+  if (mon) {
+    const d = partyDps() * dt; if (d > 0) damage(d);
+    if (on("storm")) { stormAcc += dt * 15; while (stormAcc >= 1) { stormAcc--; const r = scene.getBoundingClientRect(); tap(r.left + r.width * (0.55 + Math.random() * 0.35), r.top + r.height * (0.35 + Math.random() * 0.4)); } }
+    if (mon && mon.boss) { bossT -= dt; document.getElementById("timer").textContent = `⏳ ${Math.ceil(bossT)}s`;
+      if (bossT <= 0) { S.farming = true; S.wave = 9; G.toast("😤 The boss was too strong. Farm gold, upgrade, then hit <b>⚔️ Fight Boss</b>.", 3200); G.sfx("bad"); spawn(); } }
+    document.getElementById("hp").style.width = Math.max(0, mon.hp / mon.max * 100) + "%";
+  }
+  if (view3d) Slime3D.draw(t, dt, { boss: !!(mon && mon.boss) });
+  uiT -= dt; if (uiT <= 0) { uiT = 0.25; hud(); }
+  requestAnimationFrame(frame);
+}
+function hud() {
+  document.getElementById("gold").textContent = G.fmt(S.gold);
+  document.getElementById("gems").textContent = G.fmt(S.gems);
+  document.getElementById("shards").textContent = G.fmt(S.shards);
+  document.getElementById("dps").textContent = `🗡️ ${G.fmt(tapDmg())} per tap · 👥 ${G.fmt(partyDps())} party dps`;
+  document.getElementById("buffs").innerHTML = SKILLS.filter(s => on(s.id)).map(s => `<span>${s.e}</span>`).join("");
+  document.querySelectorAll(".sk").forEach(b => {
+    const s = SKILLS.find(x => x.id === b.dataset.id); if (S.hero < s.lvl) return;
+    const left = ((S.cds[s.id] || 0) - Date.now()) / 1000;
+    b.disabled = left > 0; b.classList.toggle("on", on(s.id));
+    b.querySelector(".cd").style.setProperty("--p", left > 0 ? left / skillCd(s) : 0);
+  });
+  document.querySelectorAll("#panel [data-cost]").forEach(b => b.disabled = S[b.dataset.cur || "gold"] < +b.dataset.cost);
+  const shop = document.querySelector('[data-t="shop"]'); if (G.dailyDay(S) && !shop.querySelector(".dot")) shop.insertAdjacentHTML("beforeend", '<i class="dot"></i>');
+  const reb = document.querySelector('[data-t="rebirth"]'); if (pendingShards() >= Math.max(5, S.shards * 0.5) && S.maxStage > 30 && !reb.querySelector(".dot")) reb.insertAdjacentHTML("beforeend", '<i class="dot"></i>');
+}
+function renderParty() {
+  document.getElementById("party").innerHTML = PARTY.filter(p => S.party[p.id]).map((p, i) => `<span style="--i:${i}">${p.e}</span>`).join("");
+  heroEl.textContent = S.path ? PATHS[S.path].hero : "🤺";
+  if (view3d) Slime3D.setHero(S.path || null, PARTY.filter(p => S.party[p.id]).map(p => p.id));
+}
+
+// ---------- panels ----------
+let tab = "hero", buyN = 1;
+// Returns [levels, total cost] for the current ×1 / ×10 / ×Max buy mode. Max buys as many as affordable (at least 1 shown).
+function bulk(costFn, lvl) {
+  if (buyN !== "max") { let sum = 0; for (let i = 0; i < buyN; i++) sum += costFn(lvl + i); return [buyN, sum]; }
+  let n = 0, sum = 0;
+  while (n < 1000) { const c = costFn(lvl + n); if (sum + c > S.gold) break; sum += c; n++; }
+  return n ? [n, sum] : [1, costFn(lvl)];
+}
+function render() {
+  const el = document.getElementById("panel");
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.t === tab));
+  const multi = `<div class="multi">${[1, 10, "max"].map(n => `<button data-n="${n}" aria-pressed="${buyN == n}">×${n === "max" ? "Max" : n}</button>`).join("")}</div>`;
+  if (tab === "hero") {
+    const [n, c] = bulk(heroCost, S.hero);
+    el.innerHTML = multi + `<div class="row"><span class="e">${heroEl.textContent}</span><div class="info"><b>Hero · Lv ${S.hero}</b><small>${G.fmt(tapDmg())} damage per tap. Every 10 levels: ×1.3.<br>Next skill: ${(SKILLS.find(s => s.lvl > S.hero) || { name: "all unlocked!", lvl: "" }).name} ${(SKILLS.find(s => s.lvl > S.hero) || {}).lvl ? "at Lv " + SKILLS.find(s => s.lvl > S.hero).lvl : ""}</small></div>
+      <button class="btn" id="lvHero" data-cost="${c}">+${n} · 🪙${G.fmt(c)}</button></div>
+      <p class="note">⚔️ Tap the monster to attack. 10% of taps are critical hits. Bosses appear on wave 10 and must fall within 30 seconds.</p>`;
+    el.querySelector("#lvHero").onclick = () => { const [n2, c2] = bulk(heroCost, S.hero); if (S.gold < c2) return; S.gold -= c2; const before = S.hero; S.hero += n2; G.sfx("up");
+      if (SKILLS.some(s => s.lvl > before && s.lvl <= S.hero)) { G.toast("✨ New skill unlocked!"); renderSkills(); } render(); };
+  }
+  if (tab === "party") {
+    el.innerHTML = multi + PARTY.map(p => {
+      if (S.stage < p.at && !S.party[p.id]) return `<div class="row" style="opacity:.5"><span class="e">❔</span><div class="info"><b>???</b><small>Joins at stage ${p.at}</small></div></div>`;
+      const l = S.party[p.id] || 0, [n, c] = bulk(lv => pCost(p, lv), l);
+      return `<div class="row"><span class="e">${p.e}</span><div class="info"><b>${p.name} · Lv ${l}</b><small>${G.fmt(pDps(p) * shardMult())} dps${l ? ` · ×2 at Lv ${(Math.floor(l / 25) + 1) * 25}` : ""}</small></div>
+        <button class="btn" data-p="${p.id}" data-cost="${c}">${l ? "+" + n : "Recruit"} · 🪙${G.fmt(c)}</button></div>`;
+    }).join("");
+    el.querySelectorAll("[data-p]").forEach(b => b.onclick = () => {
+      const p = PARTY.find(x => x.id === b.dataset.p), l = S.party[p.id] || 0, [n, c] = bulk(lv => pCost(p, lv), l); if (S.gold < c) return;
+      S.gold -= c; S.party[p.id] = l + n; G.sfx("up"); if (!l) G.toast(`${p.e} <b>${p.name}</b> joined the party!`); renderParty(); render();
+    });
+  }
+  if (tab === "gear") {
+    el.innerHTML = `<div class="gear">${Object.entries(SLOTS).map(([slot, [e, what]]) => { const g = S.gear[slot];
+      return `<div class="slot" style="--r:var(--${g ? g.rar : "common"})"><div class="e">${e}</div><b>${g ? g.name : "Empty"}</b><small>${g ? "+" + Math.round(g.v * 100) + "% " + what : what}</small></div>`; }).join("")}</div>
+      <p class="note">Bosses drop gear 45% of the time. Better drops equip automatically. Gear survives Rebirth.</p>
+      <p class="note"><b>Collection</b> · ${Object.keys(S.gearLog).length}/15 discovered</p>
+      <div class="gear">${Object.entries(SLOTS).map(([, [e, , names]]) => names.map((n, i) => `<div class="slot" style="--r:var(--${RAR[i][0]});${S.gearLog[n] ? "" : "opacity:.35;filter:grayscale(1)"}"><b>${S.gearLog[n] ? n : "???"}</b><small>${RAR[i][0]}</small></div>`).join("")).join("")}</div>`;
+  }
+  if (tab === "path") {
+    el.innerHTML = (S.bestEver < 26 ? `<p class="note">🔒 Paths unlock at stage 26. You'll become a Paladin, Ranger or Sorcerer.</p>` : `<p class="note">Choose a path. You can change it for free each time you Rebirth${S.path ? ", or now for 100 💎" : ""}.</p>`) +
+      Object.entries(PATHS).map(([id, p]) => `<div class="path ${S.path === id ? "chosen" : ""}"><b class="cz">${p.e} ${p.name}</b> ${S.path === id ? "✓" : ""}<br><small>${p.desc}</small>
+        ${S.bestEver >= 26 && S.path !== id ? `<br><button class="btn ${S.path ? "gem" : ""}" style="margin-top:6px" data-path="${id}">${S.path ? "Switch · 100 💎" : "Choose"}</button>` : ""}</div>`).join("");
+    el.querySelectorAll("[data-path]").forEach(b => b.onclick = () => {
+      if (S.path) { if (S.gems < 100) return G.toast("Not enough 💎"); S.gems -= 100; }
+      S.path = b.dataset.path; G.sfx("rare"); G.toast(`${PATHS[S.path].e} You walk the path of the <b>${PATHS[S.path].name}</b>.`); renderParty(); render();
+    });
+  }
+  if (tab === "rebirth") {
+    const ps = pendingShards();
+    el.innerHTML = `<div style="text-align:center"><div style="font-size:3rem">🔮</div><h3 class="cz" style="margin:4px 0">Rebirth</h3>
+      <p class="note">Start again from stage 1 with your gear, gems and path choice, plus <b>Soul Shards</b>: each one makes all damage and gold ×1.05, forever.</p>
+      <p>Current bonus: <b>×${G.fmt(shardMult())}</b></p><p>Rebirth now for <b>🔮 ${ps}</b> shards → <b>×${G.fmt(Math.pow(1.05, S.shards + ps))}</b></p>
+      <button class="btn" id="reb" ${S.maxStage > 30 && ps > 0 ? "" : "disabled"}>${S.maxStage > 30 ? "Rebirth" : "Reach stage 31"}</button></div>`;
+    el.querySelector("#reb").onclick = () => G.modal("Rebirth?", `<p>Reset to stage 1 and gain <b>🔮 ${ps}</b> Soul Shards?</p>`, [{ label: "Not yet", cls: "ghost" }, { label: "Rebirth!", onClick: () => {
+      S.shards += ps; S.rebirths++; Object.assign(S, { gold: 0, hero: 1, party: {}, stage: 1, wave: 1, maxStage: 1, farming: false, cds: {} }); G.sfx("rare");
+      G.achieve(S, "reb" + Math.min(S.rebirths, 5), S.rebirths === 1 ? "Born Again" : `Rebirth ×${S.rebirths}`, 50, g => S.gems += g);
+      document.querySelector('[data-t="rebirth"] .dot')?.remove(); renderParty(); renderSkills(); spawn(); render(); G.save(KEY, S); } }]);
+  }
+  if (tab === "shop") {
+    const day = G.dailyDay(S);
+    G.renderStore(el, S, () => render(), `<div class="row"><span class="e">🎁</span><div class="info"><b>Daily treasure</b><small>${day ? `Day ${day}/7: ${day === 7 ? 100 : day * 10} 💎` : "Streak " + (S.daily?.streak || 0) + " · back tomorrow"}</small></div><button class="btn" id="daily" ${day ? "" : "disabled"}>${day ? "Claim" : "✓"}</button></div>
+      <div class="row"><span class="e">⏩</span><div class="info"><b>Hourglass</b><small>Instantly earn 2h of party gold</small></div><button class="btn gem" id="skip" data-cost="50" data-cur="gems">50 💎</button></div>
+      <div class="row"><span class="e">🔄</span><div class="info"><b>Reset skills</b><small>Refresh all skill cooldowns</small></div><button class="btn gem" id="cdr" data-cost="10" data-cur="gems">10 💎</button></div>`);
+    const d = el.querySelector("#daily"); if (d) d.onclick = () => { const n = G.claimDaily(S); if (!n) return; S.gems += (n === 7 ? 100 : n * 10) + (S.owned.vip ? 50 : 0); G.sfx("rare"); document.querySelector('[data-t="shop"] .dot')?.remove(); render(); };
+    el.querySelector("#skip").onclick = () => { if (S.gems < 50) return; S.gems -= 50; const g = idleGoldRate() * 7200; S.gold += g; G.toast(`⏩ +🪙${G.fmt(g)}`); render(); };
+    el.querySelector("#cdr").onclick = () => { if (S.gems < 10) return; S.gems -= 10; S.cds = {}; G.toast("🔄 Skills ready!"); render(); };
+  }
+  el.querySelectorAll("[data-n]").forEach(b => b.onclick = () => { buyN = b.dataset.n === "max" ? "max" : +b.dataset.n; render(); });
+  hud();
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
+// Kills per second are capped (a monster takes at least 0.4s to fall), so idle gold can't run away.
+const idleGoldRate = () => Math.min(partyDps(), hpOf(S.stage) * 2.5) / 6 * goldMult() / (on("rush") ? 3 : 1);
+
+// ---------- boot ----------
+const away = G.awaySeconds(S, S.owned.vip ? 24 : 8);
+if (away > 60 && partyDps() > 0) {
+  const g = idleGoldRate() * away * (S.owned.vip ? 1 : 0.5);
+  G.modal("Your party kept fighting!", `<div style="font-size:2.6rem">${PARTY.filter(p => S.party[p.id]).map(p => p.e).join("")}</div><p>While you were away for <b>${G.time(away)}</b>:</p><p style="font-size:1.4rem"><b>🪙 ${G.fmt(g)}</b></p>`,
+    [{ label: "Collect", onClick: () => { S.gold += g; } }, { label: "3× · 25 💎", cls: "gem", onClick: () => { if (S.gems >= 25) { S.gems -= 25; S.gold += g * 3; } else S.gold += g; } }]);
+} else if (!S.kills) {
+  G.modal("Slime Slayer", `<div style="font-size:3rem">🤺 ⚔️ 🟢</div><p>The slimes have taken the meadow. Seven lands lie beyond, each darker than the last.</p><p><b>Tap monsters to attack.</b> Level up your hero, recruit a party, and topple the King Slime.</p>`, [{ label: "To battle!" }]);
+}
+G.autosave(KEY, () => S);
+spawn(); renderSkills(); renderParty(); render(); requestAnimationFrame(frame);
+</script>
+</body>
+</html>

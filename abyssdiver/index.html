@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Abyss Diver</title>
+<meta name="description" content="Dive, dodge, loot, upgrade, dive deeper. Find allies, map the bestiary, beat the Kraken.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Exo+2:wght@500;800&display=swap">
+<style>
+  /* Abyss Diver — bioluminescent sonar HUD: near-black teal, glowing cyan and magenta, techy type. */
+  :root { --abyss: #020b12; --deep: #06202b; --cyan: #3ef2ff; --mag: #ff4fd8; --lime: #b6ff5c; --text: #cdf7ff; --dim: #5d8a96; --panel: rgba(8, 40, 52, .7); --line: rgba(62, 242, 255, .25); }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body { background: radial-gradient(ellipse at 50% -10%, #0d4a5c, var(--abyss) 60%); color: var(--text); font: 500 15px/1.35 "Exo 2", system-ui, sans-serif; overscroll-behavior: none; }
+  h1, h2, .gx-title, .hudv, .btn, .tag, .gx-btn { font-family: "Chakra Petch", ui-monospace, monospace; text-transform: uppercase; letter-spacing: .06em; }
+  .app { max-width: 480px; margin: 0 auto; min-height: 100%; position: relative; }
+  .top { display: flex; gap: 8px; padding: 12px; align-items: center; }
+  .chip { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 4px 10px; font-family: "Chakra Petch"; font-weight: 700; display: flex; gap: 6px; align-items: center; }
+  .back { color: var(--dim); text-decoration: none; font-size: .9rem; }
+  .spacer { flex: 1; }
+  .hero { text-align: center; padding: 8px 16px 0; }
+  .hero h1 { font-size: 2.3rem; margin: 0; color: var(--cyan); text-shadow: 0 0 18px rgba(62,242,255,.6); }
+  .hero .sub { font-size: 4.2rem; filter: drop-shadow(0 0 16px rgba(62,242,255,.6)); animation: bob 3s ease-in-out infinite; display: inline-block; }
+  @keyframes bob { 50% { transform: translateY(-8px) rotate(4deg); } }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 12px; }
+  .stat { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 8px; text-align: center; }
+  .stat .hudv { font-size: 1.15rem; color: var(--cyan); } .stat small { color: var(--dim); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; }
+  .dive { display: block; width: calc(100% - 24px); margin: 6px 12px 12px; padding: 18px; border: 2px solid var(--cyan); border-radius: 14px; font-size: 1.5rem; font-weight: 700; color: var(--abyss); cursor: pointer;
+          background: linear-gradient(180deg, #8ff8ff, var(--cyan)); box-shadow: 0 0 24px rgba(62,242,255,.5), inset 0 -4px 0 rgba(0,0,0,.2); animation: breathe 2s ease-in-out infinite; }
+  @keyframes breathe { 50% { box-shadow: 0 0 40px rgba(62,242,255,.8), inset 0 -4px 0 rgba(0,0,0,.2); } }
+  .tabs { display: flex; gap: 4px; padding: 0 12px; overflow-x: auto; }
+  .tabs button { flex: 1; font: 700 .78rem "Chakra Petch"; text-transform: uppercase; letter-spacing: .05em; padding: 10px 4px; border: 1px solid var(--line); border-bottom: 0; border-radius: 10px 10px 0 0; background: transparent; color: var(--dim); cursor: pointer; position: relative; white-space: nowrap; }
+  .tabs button[aria-selected="true"] { background: var(--panel); color: var(--cyan); }
+  .tabs .dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--mag); box-shadow: 0 0 8px var(--mag); }
+  .panel { margin: 0 12px 24px; border: 1px solid var(--line); border-radius: 0 0 14px 14px; background: var(--panel); padding: 10px; min-height: 260px; backdrop-filter: blur(6px); }
+  .up { display: flex; align-items: center; gap: 10px; padding: 10px 6px; border-bottom: 1px solid var(--line); }
+  .up:last-child { border-bottom: 0; }
+  .up .e { font-size: 1.7rem; width: 40px; text-align: center; filter: drop-shadow(0 0 6px rgba(62,242,255,.5)); }
+  .up .info { flex: 1; min-width: 0; } .up b { font-family: "Chakra Petch"; letter-spacing: .04em; } .up small { display: block; color: var(--dim); font-size: .78rem; }
+  .pips { display: flex; gap: 2px; margin-top: 3px; } .pips i { width: 8px; height: 4px; background: rgba(62,242,255,.15); border-radius: 2px; } .pips i.on { background: var(--cyan); box-shadow: 0 0 4px var(--cyan); }
+  .btn { font: 700 .82rem "Chakra Petch"; padding: 8px 10px; min-width: 88px; border-radius: 8px; border: 1px solid var(--cyan); background: rgba(62,242,255,.12); color: var(--cyan); cursor: pointer; }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn.pearl { border-color: var(--mag); color: var(--mag); background: rgba(255,79,216,.1); }
+  .btn.gem { border-color: var(--lime); color: var(--lime); background: rgba(182,255,92,.1); }
+  .note { color: var(--dim); font-size: .8rem; margin: 6px 4px; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .cell { aspect-ratio: 1; border: 1px solid var(--line); border-radius: 10px; display: grid; place-items: center; font-size: 1.6rem; background: rgba(0,0,0,.25); }
+  .cell.no { filter: brightness(0) drop-shadow(0 0 1px var(--dim)); opacity: .5; }
+  .zone { border-left: 3px solid var(--c); padding: 8px 10px; margin-bottom: 8px; background: rgba(0,0,0,.2); border-radius: 0 8px 8px 0; }
+  /* dive view */
+  #diveView { position: fixed; inset: 0; background: #000; z-index: 40; touch-action: none; }
+  #cv { display: block; width: 100%; height: 100%; max-width: 520px; margin: 0 auto; }
+  .flash { position: absolute; inset: 0; background: radial-gradient(circle, transparent 40%, rgba(255,79,216,.55)); opacity: 0; pointer-events: none; transition: opacity .1s; }
+  .hud { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: min(100%, 480px); padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; gap: 6px; pointer-events: none; }
+  .hudv { font-size: 1.8rem; color: #fff; text-shadow: 0 0 10px var(--cyan); }
+  .gauge { height: 10px; border-radius: 5px; background: rgba(255,255,255,.12); overflow: hidden; margin-top: 4px; width: 150px; }
+  .gauge i { display: block; height: 100%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+  .gauge.o2 i { background: linear-gradient(90deg, var(--mag), var(--cyan)); }
+  .hearts { font-size: 1rem; letter-spacing: 2px; }
+  .loot { text-align: right; font-family: "Chakra Petch"; font-weight: 700; }
+  .abil { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; }
+  .abil button { width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--cyan); background: rgba(2,11,18,.7); color: #fff; font-size: 1.6rem; position: relative; cursor: pointer; overflow: hidden; }
+  .abil button:disabled { opacity: .4; }
+  .abil button .cd { position: absolute; inset: 0; background: conic-gradient(rgba(0,0,0,.7) var(--p, 0%), transparent 0); pointer-events: none; }
+  .abil small { position: absolute; bottom: 2px; left: 0; right: 0; font-size: .5rem; font-family: "Chakra Petch"; letter-spacing: .05em; }
+  .banner { position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%); font: 700 1.6rem "Chakra Petch"; text-align: center; color: var(--mag); text-shadow: 0 0 16px var(--mag); pointer-events: none; white-space: nowrap; }
+  .bossbar { position: absolute; top: 76px; left: 50%; transform: translateX(-50%); width: min(90%, 420px); pointer-events: none; }
+  .bossbar .gauge { width: 100%; height: 12px; } .bossbar .gauge i { background: var(--mag); box-shadow: 0 0 10px var(--mag); }
+  .bossbar b { font-family: "Chakra Petch"; font-size: .8rem; color: var(--mag); }
+  /* engine UI */
+  .gx-toasts { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 90; display: grid; gap: 6px; width: min(92vw, 420px); pointer-events: none; }
+  .gx-toast { background: rgba(2,11,18,.92); border: 1px solid var(--cyan); color: var(--text); border-radius: 10px; padding: 8px 12px; text-align: center; box-shadow: 0 0 16px rgba(62,242,255,.3); animation: fin .25s; }
+  .gx-toast.out { opacity: 0; transition: opacity .4s; }
+  @keyframes fin { from { opacity: 0; transform: translateY(-10px); } }
+  .gx-backdrop { position: fixed; inset: 0; background: rgba(0,6,10,.8); display: grid; place-items: center; z-index: 95; padding: 16px; backdrop-filter: blur(4px); }
+  .gx-modal { width: min(100%, 380px); background: linear-gradient(180deg, #0a3140, #04151d); border: 1px solid var(--cyan); border-radius: 16px; padding: 20px; text-align: center; box-shadow: 0 0 40px rgba(62,242,255,.25); animation: fin .25s; }
+  .gx-title { margin: 0 0 10px; color: var(--cyan); font-size: 1.4rem; text-shadow: 0 0 10px rgba(62,242,255,.6); }
+  .gx-body p { margin: 6px 0; } .gx-demo { font-size: .75rem; color: var(--dim); }
+  .gx-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+  .gx-btn { font-weight: 700; font-size: .9rem; padding: 11px 16px; border-radius: 10px; border: 1px solid var(--cyan); background: var(--cyan); color: var(--abyss); cursor: pointer; }
+  .gx-btn.ghost { background: transparent; color: var(--cyan); } .gx-btn.gem { background: var(--lime); border-color: var(--lime); } .gx-btn.buy { background: var(--cyan); }
+  .gx-product { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; background: rgba(0,0,0,.25); }
+  .gx-product b { font-family: "Chakra Petch"; letter-spacing: .05em; } .gx-product small { color: var(--dim); margin-bottom: 6px; } .gx-product.owned { opacity: .5; }
+  .gx-product .gx-btn { align-self: flex-start; }
+  .gx-badge { position: absolute; top: -8px; right: 10px; background: var(--mag); color: #fff; font: 700 .65rem "Chakra Petch"; padding: 2px 8px; border-radius: 999px; box-shadow: 0 0 10px var(--mag); }
+  .gx-float { position: fixed; z-index: 60; pointer-events: none; font: 700 1.1rem "Chakra Petch"; color: var(--lime); text-shadow: 0 0 8px var(--lime); animation: up .9s forwards; transform: translate(-50%, -50%); }
+  .gx-float.bad { color: var(--mag); text-shadow: 0 0 8px var(--mag); }
+  @keyframes up { to { transform: translate(-50%, -160%); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="dock">
+  <div class="top">
+    <a class="back" href="../index.html">◀</a>
+    <div class="chip">🪙 <span id="coins">0</span></div>
+    <div class="chip" title="Pearls: train your ocean friends">🫧 <span id="pearls">0</span></div>
+    <div class="chip">💎 <span id="gems">0</span></div>
+    <span class="spacer"></span>
+  </div>
+  <div class="hero"><div class="sub">🛟</div><h1>Abyss Diver</h1></div>
+  <div class="stats">
+    <div class="stat"><div class="hudv" id="record">0m</div><small>Deepest</small></div>
+    <div class="stat"><div class="hudv" id="dives">0</div><small>Dives</small></div>
+    <div class="stat"><div class="hudv" id="zone">Sunlight</div><small>Zone</small></div>
+  </div>
+  <button class="dive" id="diveBtn">▼ Dive ▼</button>
+  <nav class="tabs" id="tabs"><button data-t="sub">🔧 Sub</button><button data-t="friends">🐬 Friends</button><button data-t="dex">📘 Bestiary</button><button data-t="map">🗺️ Zones</button><button data-t="shop">💎 Shop</button></nav>
+  <section class="panel" id="panel"></section>
+</div>
+
+<div id="diveView" hidden>
+  <canvas id="cv" aria-label="Dive view: drag to steer"></canvas>
+  <div class="flash" id="flash"></div>
+  <div class="hud">
+    <div><div class="hudv" id="hDepth">0m</div><div class="gauge o2"><i id="hO2"></i></div><div class="hearts" id="hHull"></div></div>
+    <div class="loot"><div>🪙 <span id="hCoins">0</span></div><div>🫧 <span id="hPearls">0</span></div></div>
+  </div>
+  <div class="bossbar" id="bossbar" hidden><b id="bossName"></b><div class="gauge"><i id="bossHp"></i></div></div>
+  <div class="banner" id="banner" hidden></div>
+  <div class="abil" id="abil"></div>
+</div>
+
+<script type="module" src="abyss3d.js"></script>
+<script src="../shared/engine.js"></script>
+<script>
+const G = Grind, KEY = "abyss-v1";
+const ZONES = [
+  { name: "Sunlight", to: 200, c: ["#1b8fb3", "#0e5a80"], mobs: ["🐟", "🐠", "🪼"], rocks: 0.1 },
+  { name: "Twilight", to: 1000, c: ["#0e5a80", "#07304a"], mobs: ["🪼", "🦈", "🐡", "🦑"], rocks: 0.2, boss: { name: "The Kraken", e: "🐙", hp: 4000, at: 1000 } },
+  { name: "Midnight", to: 3000, c: ["#07304a", "#041628"], mobs: ["🦑", "🐍", "👾", "🦈"], rocks: 0.25, boss: { name: "Megalodon", e: "🦈", hp: 9e4, at: 3000 } },
+  { name: "Abyss", to: 6000, c: ["#041628", "#02070f"], mobs: ["👾", "🐍", "👁️", "🦠"], rocks: 0.3, boss: { name: "The Leviathan", e: "🐉", hp: 2.5e6, at: 6000 } },
+  { name: "Hadal Trench", to: 11000, c: ["#02070f", "#000"], mobs: ["👁️", "🦠", "💀", "👹"], rocks: 0.35, boss: { name: "The Old One", e: "🦑", hp: 8e7, at: 11000 } },
+];
+const UPS = [
+  { id: "o2", e: "🫁", name: "Oxygen Tank", base: 30, g: 1.5, max: 30, f: l => `${25 + l * 6}s air` },
+  { id: "hull", e: "🛡️", name: "Hull Plating", base: 60, g: 1.75, max: 10, f: l => `${2 + l} hits` },
+  { id: "engine", e: "⚙️", name: "Engine", base: 40, g: 1.45, max: 30, f: l => `${Math.round(18 * (1 + l * 0.1))} m/s dive` },
+  { id: "magnet", e: "🧲", name: "Magnet", base: 50, g: 1.5, max: 25, f: l => `${30 + l * 10}px pull` },
+  { id: "lamp", e: "🔦", name: "Floodlight", base: 45, g: 1.5, max: 20, f: l => `${150 + l * 25}px vision` },
+  { id: "harpoon", e: "🔱", name: "Harpoon", base: 80, g: 1.5, max: 50, f: l => `${G.fmt(10 * Math.pow(1.35, l))} dmg vs bosses` },
+  { id: "value", e: "💰", name: "Appraiser", base: 100, g: 1.6, max: 40, f: l => `+${l * 25}% treasure value` },
+  { id: "drone", e: "🛸", name: "Salvage Drones", base: 250, g: 1.8, max: 30, f: l => l ? `${G.fmt(droneRate(l) * 60)}/min while docked & offline` : "Earn while away" },
+];
+const FRIENDS = [
+  { id: "dolphin", e: "🐬", name: "Pip the Dolphin", at: 150, desc: l => `Magnet +${50 + l * 20}%` },
+  { id: "octo", e: "🐙", name: "Inky", at: 600, desc: l => `Blocks ${1 + l} hit${l ? "s" : ""} each dive` },
+  { id: "turtle", e: "🐢", name: "Old Shelly", at: 1500, desc: l => `+${5 + l * 4}s oxygen` },
+  { id: "whale", e: "🐋", name: "Big Blue", at: 4000, desc: l => `+${50 + l * 25}% treasure` },
+  { id: "seahorse", e: "🦄", name: "Sparkle (a seahorse, allegedly)", at: 8000, desc: l => `+${10 + l * 5}% dive speed` },
+];
+const RELICS = [["⚓", "Old Anchor"], ["🧭", "Brass Compass"], ["🏺", "Amphora"], ["🗿", "Sunken Idol"], ["👑", "Atlantean Crown"], ["🔱", "Poseidon's Tip"], ["📦", "Black Box"], ["🪙", "Doubloon of Doom"], ["💀", "Pirate Skull"], ["🔮", "Abyssal Orb"]];
+const DEF = { coins: 0, pearls: 0, gems: 20, up: {}, fr: {}, frLvl: {}, record: 0, dives: 0, bosses: {}, dex: {}, relics: {}, owned: {} };
+const S = G.load(KEY, DEF);
+const lv = (id) => S.up[id] || 0;
+const frLv = (id) => S.fr[id] ? (S.frLvl[id] || 0) : -1;
+const upCost = (u) => G.cost(u.base, u.g, lv(u.id));
+const droneRate = (l = lv("drone")) => l ? 0.4 * Math.pow(1.7, l) : 0;
+const zoneAt = (d) => ZONES.find(z => d < z.to) || ZONES[ZONES.length - 1];
+const valueMult = () => (1 + lv("value") * 0.25) * (frLv("whale") >= 0 ? 1.5 + frLv("whale") * 0.25 : 1) * (S.owned.starter ? 2 : 1) * (1 + Object.keys(S.relics).length * 0.1);
+
+// ---------- dock UI ----------
+let tab = "sub";
+function hud() {
+  document.getElementById("coins").textContent = G.fmt(S.coins);
+  document.getElementById("pearls").textContent = G.fmt(S.pearls);
+  document.getElementById("gems").textContent = G.fmt(S.gems);
+  document.getElementById("record").textContent = S.record.toLocaleString() + "m";
+  document.getElementById("dives").textContent = S.dives;
+  document.getElementById("zone").textContent = zoneAt(S.record).name.split(" ")[0];
+  document.querySelectorAll("#panel [data-cost]").forEach(b => b.disabled = S[b.dataset.cur || "coins"] < +b.dataset.cost || b.dataset.max === "1");
+  const shop = document.querySelector('[data-t="shop"]');
+  if (G.dailyDay(S) && !shop.querySelector(".dot")) shop.insertAdjacentHTML("beforeend", '<i class="dot"></i>');
+}
+function render() {
+  const el = document.getElementById("panel");
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.t === tab));
+  if (tab === "sub") {
+    el.innerHTML = UPS.map(u => { const l = lv(u.id), max = l >= u.max;
+      return `<div class="up"><span class="e">${u.e}</span><div class="info"><b>${u.name}</b> <small>${u.f(l)}${max ? "" : " → " + u.f(l + 1)}</small>
+        <div class="pips">${Array.from({ length: Math.min(u.max, 15) }, (_, i) => `<i class="${i < l * 15 / u.max ? "on" : ""}"></i>`).join("")}</div></div>
+        <button class="btn" data-up="${u.id}" data-cost="${max ? 0 : upCost(u)}" data-max="${max ? 1 : 0}">${max ? "MAX" : "🪙 " + G.fmt(upCost(u))}</button></div>`; }).join("") +
+      `<p class="note">Abilities unlock at level 3: Engine → ⚡ Boost · Hull → 🛡️ Shield · Magnet → 📡 Pulse.</p>`;
+    el.querySelectorAll("[data-up]").forEach(b => b.onclick = () => {
+      const u = UPS.find(x => x.id === b.dataset.up), c = upCost(u); if (S.coins < c || lv(u.id) >= u.max) return;
+      S.coins -= c; S.up[u.id] = lv(u.id) + 1; G.sfx("up");
+      if (S.up[u.id] === 3 && ["engine", "hull", "magnet"].includes(u.id)) G.toast(`⚡ New dive ability unlocked!`);
+      render();
+    });
+  }
+  if (tab === "friends") {
+    el.innerHTML = FRIENDS.map(f => { const l = frLv(f.id), cost = G.cost(5, 1.6, Math.max(0, l));
+      return l < 0 ? `<div class="up"><span class="e" style="filter:brightness(0);opacity:.5">${f.e}</span><div class="info"><b>???</b><small>Something is waiting at ${G.fmt(f.at)}m…</small></div></div>`
+        : `<div class="up"><span class="e">${f.e}</span><div class="info"><b>${f.name} · Lv ${l + 1}</b><small>${f.desc(l)} → ${f.desc(l + 1)}</small></div>
+          <button class="btn pearl" data-fr="${f.id}" data-cost="${cost}" data-cur="pearls">🫧 ${cost}</button></div>`; }).join("") +
+      `<p class="note">Rescue friends by diving past their depth. Train them with 🫧 pearls (rare glowing bubbles on dives).</p>`;
+    el.querySelectorAll("[data-fr]").forEach(b => b.onclick = () => {
+      const id = b.dataset.fr, c = G.cost(5, 1.6, frLv(id)); if (S.pearls < c) return;
+      S.pearls -= c; S.frLvl[id] = frLv(id) + 1; G.sfx("up"); render();
+    });
+  }
+  if (tab === "dex") {
+    const mobs = [...new Set(ZONES.flatMap(z => z.mobs))];
+    el.innerHTML = `<p class="note">Creatures spotted: ${mobs.filter(m => S.dex[m]).length}/${mobs.length}</p><div class="grid">${mobs.map(m => `<div class="cell ${S.dex[m] ? "" : "no"}">${m}</div>`).join("")}</div>
+      <p class="note" style="margin-top:14px">Relics recovered: ${Object.keys(S.relics).length}/${RELICS.length} · each +10% treasure forever</p>
+      <div class="grid">${RELICS.map(([e, n]) => `<div class="cell ${S.relics[n] ? "" : "no"}" title="${S.relics[n] ? n : "???"}">${e}</div>`).join("")}</div>`;
+  }
+  if (tab === "map") {
+    el.innerHTML = ZONES.map((z, i) => { const from = i ? ZONES[i - 1].to : 0, seen = S.record >= from;
+      return `<div class="zone" style="--c:${z.c[0]}"><b>${seen ? z.name : "???"}</b> <small class="note">${G.fmt(from)}–${G.fmt(z.to)}m</small>
+        ${z.boss ? `<div class="note" style="margin:2px 0 0">Gate guardian at ${G.fmt(z.boss.at)}m: ${S.bosses[z.boss.name] ? "✅ " + z.boss.e + " " + z.boss.name + " defeated" : seen ? "⚠️ " + z.boss.e + " " + z.boss.name : "???"}</div>` : ""}</div>`; }).join("") +
+      `<p class="note">Gate guardians block the way down. Upgrade your 🔱 Harpoon and outlast them before your air runs out.</p>`;
+  }
+  if (tab === "shop") {
+    const day = G.dailyDay(S);
+    G.renderStore(el, S, () => render(), `<div class="up"><span class="e">🎁</span><div class="info"><b>Daily supply drop</b><small>${day ? `Day ${day}/7: ${day * 10} 💎 + ${day * 2} 🫧` : "Streak " + (S.daily?.streak || 0) + " · back tomorrow"}</small></div><button class="btn gem" id="daily" ${day ? "" : "disabled"}>${day ? "Claim" : "✓"}</button></div>
+      <div class="up"><span class="e">🫧</span><div class="info"><b>Pearl Trade</b><small>10 pearls for 30 💎</small></div><button class="btn gem" id="pearlBuy" data-cost="30" data-cur="gems">30 💎</button></div>`);
+    const d = el.querySelector("#daily"); if (d) d.onclick = () => { const n = G.claimDaily(S); if (!n) return; S.gems += n * 10 + (S.owned.vip ? 50 : 0); S.pearls += n * 2; G.sfx("rare"); document.querySelector('[data-t="shop"] .dot')?.remove(); render(); };
+    el.querySelector("#pearlBuy").onclick = () => { if (S.gems < 30) return; S.gems -= 30; S.pearls += 10; G.sfx("coin"); render(); };
+  }
+  hud();
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
+
+// ---------- the dive ----------
+const cv = document.getElementById("cv"), W = 420, H = 760, SUBY = H * 0.3; // game playfield in virtual px; abyss3d.js maps it to 3D
+let R = null; // run state
+function stats() {
+  const fr = (id, a, b) => frLv(id) >= 0 ? a + frLv(id) * b : 0;
+  return {
+    o2: 25 + lv("o2") * 6 + fr("turtle", 5, 4), hull: 2 + lv("hull"), speed: 18 * (1 + lv("engine") * 0.1) * (1 + fr("seahorse", 0.1, 0.05)),
+    magnet: (30 + lv("magnet") * 10) * (1 + fr("dolphin", 0.5, 0.2)), lamp: 150 + lv("lamp") * 25, dmg: 10 * Math.pow(1.35, lv("harpoon")), block: fr("octo", 1, 1),
+  };
+}
+let view3dReady = false;
+function startDive() {
+  if (!window.Abyss3D) { G.toast("Loading the ocean…"); addEventListener("abyss3d-ready", startDive, { once: true }); return; }
+  if (!view3dReady) { view3dReady = true; document.getElementById("diveView").hidden = false; Abyss3D.init(cv, { W, H, SUBY }); }
+  Abyss3D.reset();
+  const st = stats();
+  R = { st, depth: 0, o2: st.o2, hull: st.hull, block: st.block, x: W / 2, tx: W / 2, objs: [], coins: 0, pearls: 0, finds: [], t: 0, inv: 0, cds: {}, until: {}, boss: null,
+        spawnY: 0, end: null, flash: 0, newDex: [],
+        escortList: Object.fromEntries(FRIENDS.filter(f => S.fr[f.id]).map(f => [f.id, () => Abyss3D.friendModel(f.e)()])) };
+  document.getElementById("dock").hidden = true; document.getElementById("diveView").hidden = false;
+  const ab = document.getElementById("abil"); ab.innerHTML = "";
+  [["boost", "⚡", "engine", 12, 3], ["shield", "🛡️", "hull", 20, 4], ["pulse", "📡", "magnet", 15, 3]].forEach(([id, e, req, cd, dur]) => {
+    if (lv(req) < 3) return;
+    const b = G.el("button", "", `${e}<span class="cd"></span><small>${id}</small>`); b.dataset.id = id;
+    b.onclick = (ev) => { ev.stopPropagation(); if ((R.cds[id] || 0) > R.t) return; R.cds[id] = R.t + cd; R.until[id] = R.t + dur; G.sfx("up"); b.dataset.cd = cd; };
+    ab.appendChild(b);
+  });
+  banner(zoneAt(0).name + " zone", 1.6);
+  last = performance.now(); requestAnimationFrame(frame);
+}
+let bannerT = 0;
+function banner(text, secs = 2) { const b = document.getElementById("banner"); b.textContent = text; b.hidden = false; bannerT = secs; }
+const on = (id) => (R.until[id] || 0) > R.t;
+function spawnRow(worldY) {
+  const d = worldY / 10, z = zoneAt(d), density = 1 + d / 800;
+  if (Math.random() < 0.55) R.objs.push({ k: "coin", x: 30 + Math.random() * (W - 60), y: worldY, e: "🪙", v: Math.ceil((2 + d * 0.06) * valueMult()) });
+  if (Math.random() < 0.25) for (let i = 0; i < 4; i++) R.objs.push({ k: "coin", x: 60 + (i * 26) + (worldY % 200), y: worldY + i * 22, e: "🪙", v: Math.ceil((2 + d * 0.06) * valueMult()) });
+  if (Math.random() < 0.06) R.objs.push({ k: "air", x: 40 + Math.random() * (W - 80), y: worldY + 20, e: "🫧" }); // +5s oxygen
+  if (Math.random() < 0.012 && d > 60) R.objs.push({ k: "chest", x: 60 + Math.random() * (W - 120), y: worldY + 50, e: "🧰", v: Math.ceil((2 + d * 0.06) * valueMult() * 20) });
+  if (Math.random() < 0.012 + d / 300000) R.objs.push({ k: "pearl", x: 30 + Math.random() * (W - 60), y: worldY + 40, e: "🫧" });
+  if (Math.random() < 0.004 && d > 80) { const left = RELICS.filter(r => !S.relics[r[1]]); if (left.length) { const r = left[Math.random() * left.length | 0]; R.objs.push({ k: "relic", x: 40 + Math.random() * (W - 80), y: worldY + 30, e: r[0], n: r[1] }); } }
+  if (Math.random() < Math.min(0.75, 0.22 * density)) { const e = z.mobs[Math.random() * z.mobs.length | 0]; R.objs.push({ k: "mob", x: Math.random() * W, y: worldY + 60, e, vx: (Math.random() < .5 ? -1 : 1) * (30 + Math.random() * 40 * density), r: 20 }); }
+  if (Math.random() < z.rocks) { const w = 50 + Math.random() * 70, left = Math.random() < .5; R.objs.push({ k: "rock", x: left ? w / 2 : W - w / 2, y: worldY + 90, w, r: w / 2 }); }
+  FRIENDS.forEach(f => { if (!S.fr[f.id] && d < f.at && d + 8 >= f.at && !R.objs.some(o => o.fid === f.id)) R.objs.push({ k: "friend", fid: f.id, x: W / 2, y: f.at * 10, e: f.e }); });
+}
+let last = 0;
+function frame(t) {
+  if (!R || R.end) return;
+  const dt = Math.min(0.05, (t - last) / 1000); last = t; R.t += dt;
+  const st = R.st;
+  // air
+  R.o2 -= dt; if (R.o2 <= 0) return finish("Out of air");
+  // descend unless a gate guardian blocks the way
+  const z = zoneAt(R.depth), nextGate = ZONES.find(zz => zz.boss && !S.bosses[zz.boss.name] && zz.boss.at >= R.depth - 1), gate = nextGate && R.depth >= nextGate.boss.at ? nextGate : null;
+  if (gate && !R.boss) { R.boss = { ...gate.boss, max: gate.boss.hp, hp: gate.boss.hp, x: W / 2, shots: [], fire: 1, harp: 0 }; banner("⚠️ " + gate.boss.name + " ⚠️", 2.2); G.sfx("bad");
+    document.getElementById("bossbar").hidden = false; document.getElementById("bossName").textContent = gate.boss.e + " " + gate.boss.name; }
+  const speed = st.speed * (on("boost") ? 2.5 : 1);
+  if (!R.boss) { const prevZone = z; R.depth = Math.min(R.depth + speed * dt, nextGate ? nextGate.boss.at : Infinity); const nz = zoneAt(R.depth); if (nz !== prevZone) { banner(nz.name + " zone", 1.8); G.sfx("rare"); } }
+  // steering
+  const steer = 260 * (1 + lv("engine") * 0.05);
+  if (keys.ArrowLeft) R.tx -= steer * dt * 1.6; if (keys.ArrowRight) R.tx += steer * dt * 1.6;
+  R.tx = Math.max(20, Math.min(W - 20, R.tx));
+  R.x += Math.sign(R.tx - R.x) * Math.min(Math.abs(R.tx - R.x), steer * dt * 2);
+  // spawn world ahead
+  const worldY = R.depth * 10;
+  while (!R.boss && R.spawnY < worldY + H * 1.5) { R.spawnY += 70; if (R.spawnY > 250) spawnRow(R.spawnY); }
+  // objects
+  const mag = st.magnet * (on("pulse") ? 4 : 1);
+  for (const o of R.objs) {
+    if (o.k === "mob") { o.x += o.vx * dt; if (o.x < 10 || o.x > W - 10) o.vx *= -1; }
+    const sy = o.y - worldY + SUBY, dx = R.x - o.x, dy = SUBY - sy, dist = Math.hypot(dx, dy);
+    if (["coin", "pearl", "relic", "friend", "air", "chest"].includes(o.k) && dist < mag + 18) { o.x += dx * dt * 8; o.y += dy * dt * 8; }
+    if (dist < 24 + (o.r || 0) * 0.6 && !o.done) {
+      if (o.k === "coin") { o.done = 1; R.coins += o.v; G.sfx("coin"); }
+      else if (o.k === "air") { o.done = 1; R.o2 = Math.min(R.st.o2 + 10, R.o2 + 5); G.sfx("up"); floatAt(o.x, sy, "+5s air"); }
+      else if (o.k === "chest") { o.done = 1; R.coins += o.v; G.sfx("rare"); floatAt(o.x, sy, "🧰 +" + G.fmt(o.v)); banner("🧰 Sunken treasure!", 1.4); }
+      else if (o.k === "pearl") { o.done = 1; R.pearls++; G.sfx("rare"); floatAt(o.x, sy, "+1 🫧"); }
+      else if (o.k === "relic") { o.done = 1; R.finds.push(o); S.relics[o.n] = Date.now(); G.sfx("rare"); banner(o.e + " " + o.n + "!", 1.8); }
+      else if (o.k === "friend") { o.done = 1; S.fr[o.fid] = true; S.frLvl[o.fid] = 0; const f = FRIENDS.find(x => x.id === o.fid); G.sfx("rare"); banner(f.e + " " + f.name.split(" ")[0] + " joined!", 2.2); }
+      else if ((o.k === "mob" || o.k === "rock") && R.inv <= 0 && !on("shield")) { hit(o); }
+    }
+    if (o.k === "mob" && sy > -40 && sy < H + 40 && !S.dex[o.e]) { S.dex[o.e] = Date.now(); R.newDex.push(o.e); floatAt(o.x, sy - 30, "📘 NEW"); }
+  }
+  R.objs = R.objs.filter(o => !o.done && o.y - worldY > -H);
+  R.inv = Math.max(0, R.inv - dt); R.flash = Math.max(0, R.flash - dt);
+  if (R.boss) bossTick(dt);
+  if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) document.getElementById("banner").hidden = true; }
+  draw(worldY, t, dt);
+  diveHud();
+  requestAnimationFrame(frame);
+}
+function hit(o) {
+  if (R.block > 0) { R.block--; floatAt(R.x, SUBY, "🐙 blocked!"); R.inv = 1; return; }
+  R.hull--; R.inv = 1.2; R.flash = 0.25; G.sfx("hit"); G.shake(cv, 8); floatAt(R.x, SUBY, "-1 hull", "bad");
+  if (R.hull <= 0) finish("Hull breached");
+}
+function bossTick(dt) {
+  const b = R.boss;
+  b.x = W / 2 + Math.sin(R.t * 1.3) * (W * 0.3);
+  b.harp -= dt; if (b.harp <= 0) { b.harp = 0.35; b.hp -= R.st.dmg; G.sfx("tap"); floatAt(b.x + (Math.random() - .5) * 40, H * 0.75, "-" + G.fmt(R.st.dmg)); }
+  b.fire -= dt; if (b.fire <= 0) { b.fire = Math.max(0.35, 1.1 - ZONES.findIndex(z => z.boss && z.boss.name === b.name) * 0.15); for (let i = -1; i <= 1; i++) b.shots.push({ x: b.x, y: H * 0.78, vx: i * 70 + (R.x - b.x) * 0.6, vy: -260 }); }
+  b.shots.forEach(s => { s.x += s.vx * dt; s.y += s.vy * dt; if (Math.hypot(s.x - R.x, s.y - SUBY) < 22 && R.inv <= 0 && !on("shield")) { s.y = -99; hit(); } });
+  b.shots = b.shots.filter(s => s.y > -20);
+  document.getElementById("bossHp").style.width = Math.max(0, b.hp / b.max * 100) + "%";
+  if (b.hp <= 0) {
+    S.bosses[b.name] = Date.now(); const reward = Math.ceil(b.max * 0.5 * valueMult());
+    R.coins += reward; R.pearls += 10; G.sfx("rare"); banner(`${b.e} DEFEATED! +🪙${G.fmt(reward)}`, 2.4);
+    G.achieve(S, "boss_" + b.name, "Slayer of " + b.name, 100, g => S.gems += g);
+    R.boss = null; R.depth += 2; document.getElementById("bossbar").hidden = true;
+  }
+}
+function floatAt(x, y, txt, cls) { const [sx, sy] = Abyss3D.project(x, y); G.float(sx, sy, txt, cls); }
+// 3D view: abyss3d.js renders the run; deepness (0..1) drives darkness, fog and bioluminescence.
+function draw(worldY, t, dt) {
+  Abyss3D.draw(R, worldY, t, dt, zoneAt(R.depth), Math.min(1, R.depth / 3000));
+  document.getElementById("flash").style.opacity = R.flash > 0 ? R.flash * 1.6 : 0;
+}
+function diveHud() {
+  document.getElementById("hDepth").textContent = Math.floor(R.depth).toLocaleString() + "m";
+  document.getElementById("hO2").style.width = Math.max(0, R.o2 / R.st.o2 * 100) + "%";
+  document.getElementById("hHull").textContent = "🛡️".repeat(Math.max(0, R.hull)) + (R.block ? " 🐙".repeat(R.block) : "");
+  document.getElementById("hCoins").textContent = G.fmt(R.coins);
+  document.getElementById("hPearls").textContent = R.pearls;
+  document.querySelectorAll("#abil button").forEach(b => { const left = (R.cds[b.dataset.id] || 0) - R.t; b.disabled = left > 0; b.querySelector(".cd").style.setProperty("--p", left > 0 ? (left / +b.dataset.cd * 100) + "%" : "0%"); });
+}
+function finish(reason) {
+  R.end = reason; const breached = reason === "Hull breached";
+  const keep = breached ? 0.6 : 1, coins = Math.floor(R.coins * keep), rec = R.depth > S.record;
+  S.dives++; if (rec) S.record = Math.floor(R.depth);
+  G.sfx(breached ? "bad" : "coin");
+  if (S.dives === 1) G.achieve(S, "first", "First Dive", 15, g => S.gems += g);
+  if (S.record >= 1000) G.achieve(S, "d1k", "Twilight Explorer (1,000m)", 50, g => S.gems += g);
+  if (S.record >= 5000) G.achieve(S, "d5k", "Abyss Walker (5,000m)", 150, g => S.gems += g);
+  const bank = (m) => { S.coins += coins * m; S.pearls += R.pearls; R = null; document.getElementById("diveView").hidden = true; document.getElementById("dock").hidden = false; document.getElementById("bossbar").hidden = true; G.save(KEY, S); render(); };
+  G.modal(breached ? "💥 Hull breached" : "🫧 Surfacing", `<p style="font-size:2.2rem;margin:4px 0">${Math.floor(R.depth).toLocaleString()}m ${rec ? "<br><small style='color:var(--lime);font-size:.9rem'>★ NEW RECORD ★</small>" : ""}</p>
+    <p>🪙 <b>${G.fmt(coins)}</b>${breached ? " <small class='gx-demo'>(40% lost in the wreck)</small>" : ""} · 🫧 <b>${R.pearls}</b></p>
+    ${R.finds.length ? `<p>Relics: ${R.finds.map(f => f.e).join(" ")}</p>` : ""}${R.newDex.length ? `<p>📘 New creatures: ${R.newDex.join(" ")}</p>` : ""}`,
+    [{ label: "Bank it", cls: "ghost", onClick: () => bank(1) }, { label: "2× loot · 15 💎", cls: "gem", onClick: () => { if (S.gems >= 15) { S.gems -= 15; bank(2); } else { G.toast("Not enough 💎"); bank(1); } } }]);
+}
+const keys = {};
+addEventListener("keydown", e => { keys[e.key] = true; if (e.code === "Space" && !R && document.getElementById("diveView").hidden && !document.querySelector(".gx-backdrop")) startDive(); });
+addEventListener("keyup", e => keys[e.key] = false);
+const dv = document.getElementById("diveView");
+function steerTo(e) { if (!R) return; const r = cv.getBoundingClientRect(); R.tx = Math.max(20, Math.min(W - 20, Abyss3D.gameX((e.clientX - r.left) / r.width))); }
+dv.addEventListener("pointerdown", steerTo); dv.addEventListener("pointermove", (e) => { if (e.buttons || e.pointerType === "touch") steerTo(e); });
+document.getElementById("diveBtn").onclick = () => { G.sfx("up"); startDive(); };
+
+// ---------- idle drones & boot ----------
+setInterval(() => { if (!R && droneRate() > 0) { S.coins += droneRate(); hud(); } }, 1000);
+const away = G.awaySeconds(S, S.owned.vip ? 24 : 8);
+if (away > 60 && droneRate() > 0) {
+  const got = droneRate() * away * (S.owned.vip ? 2 : 1);
+  G.modal("Drones reporting", `<p>🛸 Your salvage drones worked for <b>${G.time(away)}</b>.</p><p style="font-size:1.4rem">🪙 <b>${G.fmt(got)}</b></p>`, [{ label: "Collect", onClick: () => { S.coins += got; hud(); } }]);
+} else if (!S.dives) {
+  G.modal("Abyss Diver", `<p style="font-size:3rem;margin:0">🌊🚤</p><p>The ocean is 11,000m deep. Nobody has reached the bottom.</p><p><b>Drag</b> (or ← →) to steer. Grab 🪙, dodge creatures and rocks, and surface before your air runs out.</p><p>Upgrade. Dive deeper. Find friends. Beat the guardians.</p>`, [{ label: "Let's dive" }]);
+}
+G.autosave(KEY, () => S);
+render();
+</script>
+</body>
+</html>
