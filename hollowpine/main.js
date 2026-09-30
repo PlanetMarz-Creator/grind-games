@@ -4,6 +4,7 @@ import W, * as world from "./world.js";
 import { makeHuman, animate } from "./actors.js";
 import { createGame } from "./play.js";
 import * as D from "./data.js";
+import Audio from "./audio.js";
 
 const G = window.Grind;
 const KEY = "hollowpine.v1";
@@ -11,10 +12,14 @@ const DEF = {
   name: "Kael", created: false, look: { ...D.DEFAULT_LOOK }, lvl: 1, xp: 0, sp: 0, gems: 0, silver: 0,
   arts: { vit: 0, edge: 0, swift: 0, silence: 0, focus: 0, precision: 0 }, abil: { step: 0, smoke: 0, dart: 0, vanish: 0, storm: 0 }, gear: { blade: 0, armor: 0, purse: 0 },
   wardrobe: {}, unlocked: {}, progress: {}, endings: {}, flags: {}, bestWave: 0, ach: {}, owned: {}, mute: false,
-  stats: { kills: 0, takedowns: 0, poisonKills: 0, dodges: 0, silverTotal: 0, multi: false, runs: 0 },
+  music: true, ink: true, stats: { kills: 0, takedowns: 0, poisonKills: 0, dodges: 0, silverTotal: 0, multi: false, runs: 0 },
 };
 const S = G.load(KEY, DEF);
 G.muted = S.mute;
+// All game sound goes through the procedural audio engine; the shared engine's UI blips map onto it.
+const SFX_MAP = { tap: "ui", coin: "coin", up: "art", rare: "victory", bad: "hurt", hit: "hit" };
+G.sfx = (t, v) => Audio.sfx(SFX_MAP[t] || t, v);
+Audio.setMuted(!!S.mute); Audio.setMusic(S.music !== false);
 const save = () => G.save(KEY, S);
 G.autosave(KEY, () => S, 8000);
 
@@ -50,7 +55,15 @@ function show(id) {
 }
 document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => { G.sfx("tap"); show(b.dataset.go); }));
 function renderWallets() { document.querySelectorAll("[data-wallet]").forEach((w) => (w.innerHTML = `<span class="gold-t">🪙 ${G.fmt(S.silver)}</span><span class="jade-t">💎 ${G.fmt(S.gems)}</span>`)); }
-function fade(cb) { const f = $("fade"); f.classList.add("on"); setTimeout(() => { cb(); setTimeout(() => f.classList.remove("on"), 60); }, 420); }
+function fade(cb) { const f = $("fade"); f.classList.add("on"); setTimeout(() => { cb(); setTimeout(() => f.classList.remove("on"), 80); }, 520); }
+// Act title card: a brush-stroke kanji on an ink wipe, shown when a chapter opens.
+const ACT_INK = [["悲劇", "Tragedy"], ["修行", "Training"], ["復讐", "Vengeance"], ["力", "Strength"]];
+function titleCard(L, then) {
+  const c = $("card"), [kanji, theme] = ACT_INK[L.act];
+  c.innerHTML = `<div class="k">${kanji}</div><div class="seal">${["一", "二", "三", "四"][L.act]}</div><div class="en"><small>${D.ACTS[L.act].name} · ${theme}</small><b>${L.name}</b></div>`;
+  c.classList.remove("on"); void c.offsetWidth; c.classList.add("on"); Audio.sfx("boss");
+  setTimeout(() => { c.classList.remove("on"); then(); }, 2300);
+}
 
 // ---------- 3D: showcase scenes for menus ----------
 let mode = "menu", game = null, hero = null, heroKey = "", showKey = "", view = { r: 3.4, h: 1.2, look: 0.95, spin: 0.12 }, extra = [], sceneFn = null;
@@ -120,6 +133,7 @@ $("story").addEventListener("pointerdown", (e) => { if (e.target.closest("button
 // ---------- title ----------
 let dailyShown = false;
 function enterTitle() {
+  Audio.setMode("menu");
   showcase(stageNow()); view = { r: 5.4, h: 1.5, look: 1.15, spin: 0.15 };
   const i = nextIndex(), L = D.LEVELS[i];
   $("playBtn").textContent = !S.created ? "Begin" : Object.keys(S.progress).length ? `Continue · ${L.name}` : `Begin · ${L.name}`;
@@ -137,7 +151,7 @@ function enterTitle() {
   }
 }
 $("playBtn").onclick = () => { G.sfx("tap"); if (!S.created) { enterCreator(true); return; } playLevel(nextIndex()); };
-$("muteBtn").onclick = () => { G.muted = S.mute = !G.muted; $("muteBtn").textContent = G.muted ? "🔇" : "🔊"; save(); };
+$("muteBtn").onclick = () => { G.muted = S.mute = !G.muted; Audio.setMuted(G.muted); $("muteBtn").textContent = G.muted ? "🔇" : "🔊"; save(); };
 
 // ---------- chapters ----------
 function renderChapters() {
@@ -216,10 +230,10 @@ let curLevel = null;
 function ctxFor(stageIdx) {
   return {
     look: S.look, stageIdx, stats: derived(),
-    hud: renderHud, sfx: G.sfx, toast: G.toast, hint: showHint,
+    hud: renderHud, sfx: (n, v) => Audio.sfx(n, v), vibrate: Audio.vibrate, music: (m, low) => { Audio.setMode(m); Audio.setHeart(low); }, toast: G.toast, hint: showHint,
     float: (x, y, z, text, cls = "") => { const p = world.project(x, y, z); if (p.behind) return; const f = document.createElement("div"); f.className = "float " + cls; f.textContent = text; f.style.left = p.x + "px"; f.style.top = p.y + "px"; document.body.appendChild(f); setTimeout(() => f.remove(), 900); },
     dialog: (lines, cb) => { story(lines, "", () => { show("hud"); cb(); }); },
-    boss: (E) => { $("bossName").textContent = E.bdef.name; $("bossTitle").textContent = E.echo ? "Echo" : E.bdef.title; $("bossBar").style.display = "block"; },
+    boss: (E) => { Audio.sfx("boss"); $("bossName").textContent = E.bdef.name; $("bossTitle").textContent = E.echo ? "Echo" : E.bdef.title; $("bossBar").style.display = "block"; },
     onKill: () => {},
     end: onEnd,
   };
@@ -236,8 +250,8 @@ function playLevel(i) {
     game.start(L); showKey = ""; heroKey = "";
     $("bossBar").style.display = "none";
     setupPad();
-    cinA = Math.PI * 0.15; mode = "cinema";
-    story(L.intro, `${D.ACTS[L.act].name} · ${L.place}`, () => { mode = "play"; show("hud"); });
+    cinA = Math.PI * 0.15; mode = "cinema"; Audio.setMode("menu"); show("none");
+    titleCard(L, () => story(L.intro, `${D.ACTS[L.act].name} · ${L.place}`, () => { mode = "play"; show("hud"); }));
   });
 }
 function playEndless() {
@@ -296,6 +310,7 @@ function finishRewards(xp, silver, jade, news) {
   checkAch(news); save();
 }
 function results({ title, sub, r, xp, silver, jade, news, L, lose, endless }) {
+  Audio.setMode(lose ? "silent" : "victory"); Audio.setHeart(0); world.lowHealth(0);
   if (game) { mode = "cinema"; }
   const st3 = L ? { time: `Finish under ${G.time(L.par)}`, ghost: "Never be spotted", untouched: "Lose less than a quarter of your health" }[L.star3] : "";
   const reqs = L ? [["Complete the chapter", r.stars[0]], ["Finish with over half your health", r.stars[1]], [st3, r.stars[2]]] : [];
@@ -383,7 +398,7 @@ function setupPad() {
   D.ABILITIES.forEach((a) => {
     if (!S.abil[a.id]) return;
     const b = document.createElement("button"); b.className = "ab"; b.dataset.ab = a.id; b.setAttribute("aria-label", a.name);
-    b.innerHTML = `${a.icon}<kbd>${a.key}</kbd>`; b.style.right = (k * 54) + "px"; b.style.bottom = "152px"; k++;
+    b.innerHTML = `${a.icon}<kbd>${a.key}</kbd>`; b.style.right = (k * 54) + "px"; b.style.bottom = "168px"; k++;
     bindPress(b, () => game && game.press(a.id)); pad.appendChild(b);
   });
   pad.style.width = Math.max(250, k * 54) + "px";
@@ -399,7 +414,8 @@ function renderHud(h) {
   else if (h.aware >= 1) { eye.style.display = "block"; eye.style.color = "#ff5a4a"; eye.textContent = "! SPOTTED"; }
   else if (h.aware > 0.08) { eye.style.display = "block"; eye.style.color = "#ffd24a"; eye.textContent = "? NOTICED"; }
   else eye.style.display = "none";
-  if (h.boss) { $("bossBar").style.display = "block"; $("bossHp").style.width = (100 * h.boss.f) + "%"; } else $("bossBar").style.display = "none";
+  if (h.boss) { $("bossBar").style.display = "block"; $("bossHp").style.width = (100 * h.boss.f) + "%"; $("bossPost").style.width = (100 * Math.min(1, h.boss.posture)) + "%"; $("bossPost").parentElement.classList.toggle("broken", !!h.boss.broken); } else $("bossBar").style.display = "none";
+  $("bAtk").classList.toggle("fin", !!h.finisher && !h.td); $("bParry").style.setProperty("--cd", Math.min(1, h.parryCd / 0.5));
 }
 let hintTimer;
 function showHint(text) { const e = $("hint"); e.textContent = text; e.classList.add("on"); clearTimeout(hintTimer); hintTimer = setTimeout(() => e.classList.remove("on"), 5200); }
@@ -407,14 +423,17 @@ function bindPress(el, fn) { el.addEventListener("pointerdown", (e) => { e.preve
 bindPress($("bAtk"), () => game && game.press("attack"));
 bindPress($("bDodge"), () => game && game.press("dodge"));
 bindPress($("bSneak"), () => game && game.press("sneak"));
+bindPress($("bParry"), () => game && game.press("parry"));
 $("pauseBtn").addEventListener("pointerdown", (e) => { e.stopPropagation(); pause(); });
 function pause() {
   if (!game || mode !== "play") return;
   game.paused = true;
-  G.modal("Paused", `<p>${curLevel.L ? curLevel.L.name : "The Ashes"}</p><p class="mut">Move: drag left side / WASD · Strike: ⚔ / J · Dodge: ⤵ / Space · Sneak: 👣 / C · Arts: 1–5</p>`, [
+  G.modal("Paused", `<p>${curLevel.L ? curLevel.L.name : "The Ashes"}</p><p class="mut">Move: drag left side / WASD · Strike: ⚔ / J · Dodge: ⤵ / Space · Sneak: 👣 / C · Parry: 🛡 / L · Arts: 1–5</p>`, [
     { label: "Resume", onClick: () => (game.paused = false) },
     { label: "Restart", cls: "ghost", onClick: () => (curLevel.endless ? playEndless() : playLevel(curLevel.i)) },
-    { label: G.muted ? "Sound on" : "Sound off", cls: "ghost", onClick: () => { G.muted = S.mute = !G.muted; save(); game.paused = false; } },
+    { label: G.muted ? "Sound on" : "Sound off", cls: "ghost", onClick: () => { G.muted = S.mute = !G.muted; Audio.setMuted(G.muted); save(); game.paused = false; } },
+    { label: S.music !== false ? "Music off" : "Music on", cls: "ghost", onClick: () => { S.music = S.music === false; Audio.setMusic(S.music); save(); game.paused = false; } },
+    { label: S.ink !== false ? "Color style" : "Ink style", cls: "ghost", onClick: () => { S.ink = S.ink === false; world.setInk(S.ink); save(); game.paused = false; } },
     { label: "Quit", cls: "ghost", onClick: () => { leaveGame(); show("chapters"); } },
   ]);
 }
@@ -445,6 +464,7 @@ addEventListener("keydown", (e) => {
   if (e.code === "KeyJ" || e.code === "Enter") game.press("attack");
   else if (e.code === "Space" || e.code === "KeyK") { e.preventDefault(); game.press("dodge"); }
   else if (e.code === "KeyC" || e.code === "ShiftLeft" || e.code === "ShiftRight") game.press("sneak");
+  else if (e.code === "KeyL" || e.code === "KeyQ") game.press("parry");
   else if (e.code === "Escape" || e.code === "KeyP") pause();
   else { const a = D.ABILITIES.find((x) => "Digit" + x.key === e.code); if (a) game.press(a.id); }
 });
@@ -530,6 +550,7 @@ window.HP = { S, save, W, world, get game() { return game; }, playLevel: (i) => 
 // ---------- boot ----------
 try {
   world.init($("view"));
+  world.setInk(S.ink !== false);
   show("title");
   $("loading").remove();
   requestAnimationFrame(loop);

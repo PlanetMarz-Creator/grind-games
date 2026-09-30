@@ -14,7 +14,7 @@ const pick = (list) => { const tot = list.reduce((s, [, w]) => s + w, 0); let r 
 
 export function createGame(ctx) {
   const G = { enemies: [], proj: [], pickups: [], pools: [], smokes: [], decals: [], paused: false, over: false };
-  let P, L, t = 0, slow = 0, hintI = 0, hudT = 0, stats, bossE = null, goalBeacon = null, wave = 0, waveT = 0, endT = 0, endResult = null, kills = [];
+  let P, L, t = 0, slow = 0, hitStop = 0, hintI = 0, hudT = 0, stats, bossE = null, goalBeacon = null, wave = 0, waveT = 0, endT = 0, endResult = null, kills = [];
   const stage = () => STAGES[ctx.stageIdx];
 
   // ---------- collision ----------
@@ -69,10 +69,11 @@ export function createGame(ctx) {
     world.add(h.root);
     const S = ctx.stats;
     P = { x: level.start[0], z: level.start[1], face: Math.PI, r: 0.3 * Math.max(0.8, h.scale), h, hp: S.maxHp, maxHp: S.maxHp, act: null, actT: 0, actDur: 0, combo: 0, comboT: 0, queued: false,
-      sneak: false, inv: 0, dodgeCd: 0, cd: {}, vanish: 0, nextTD: false, dead: false, moveAmt: 0, speed: 4.4 * st.speed * S.speedMul, bladeLen: (LOOKS.blade.find((b) => b.id === ctx.look.blade) || LOOKS.blade[0]).len };
+      sneak: false, inv: 0, dodgeCd: 0, parryT: 0, parryCd: 0, cd: {}, vanish: 0, nextTD: false, dead: false, moveAmt: 0, speed: 4.4 * st.speed * S.speedMul, bladeLen: (LOOKS.blade.find((b) => b.id === ctx.look.blade) || LOOKS.blade[0]).len };
     G.P = P;
-    stats = { kills: 0, takedowns: 0, poisonKills: 0, dodges: 0, dmgTaken: 0, detected: false, silver: 0, xp: 0, multi: false, orbs: 0 };
+    stats = { kills: 0, takedowns: 0, poisonKills: 0, dodges: 0, parries: 0, breaks: 0, dmgTaken: 0, detected: false, silver: 0, xp: 0, multi: false, orbs: 0 };
     G.stats = stats;
+    P.trail = world.trail(bladeColor()); world.add(P.trail);
     for (const [type, x, z, path, o] of level.enemies || []) spawn(type, x, z, path, o || {});
     if (level.boss) { const [id, x, z] = level.boss; bossE = spawnBoss(id, x, z); }
     if (level.goal && level.goal.type === "reach") {
@@ -94,7 +95,7 @@ export function createGame(ctx) {
     world.add(h.root);
     const E = { type, def, h, x, z, r: def.r || 0.34, face: o.face ?? Math.PI * 0 + (path ? faceTo(x, z, path[1 % path.length][0], path[1 % path.length][1]) : 0), baseFace: o.face ?? 0, look: o.look || 0,
       hp: def.hp * (1 + 0.4 * tier), maxHp: def.hp * (1 + 0.4 * tier), dmg: def.dmg * (1 + 0.3 * tier), state: "patrol", aware: 0, path, pi: 1 % (path ? path.length : 1), dir: 1, wait: 0,
-      act: null, actT: 0, actDur: 0, cd: rnd(0.5, 1.2), stun: 0, invis: 0, poison: null, target: !!o.target, lost: 0, dead: false, deadT: 0, xp: def.xp * (1 + 0.35 * tier), silver: def.silver * (1 + 0.3 * tier), id: Math.random() * 100 };
+      act: null, actT: 0, actDur: 0, cd: rnd(0.5, 1.2), stun: 0, invis: 0, posture: 0, postT: 0, poison: null, target: !!o.target, lost: 0, dead: false, deadT: 0, xp: def.xp * (1 + 0.35 * tier), silver: def.silver * (1 + 0.3 * tier), id: Math.random() * 100 };
     if (o.face == null && !path) E.face = Math.PI * (Math.random() < 0.5 ? 0 : 1) + rnd(-0.6, 0.6);
     E.mk = world.marker(); E.bar = world.hpBar(); world.add(E.mk); world.add(E.bar);
     if (def.vision && !def.hidden) { E.cone = world.visionCone(def.vision, def.fov); world.add(E.cone); }
@@ -112,7 +113,7 @@ export function createGame(ctx) {
     const hpMul = echo ? 0.45 + wave * 0.03 : 1 + 0.35 * tier;
     const E = { type: id, boss: true, bdef: B, def: { name: B.name, vision: 9, fov: 120, reach: 2.4, speed: B.speed, kit: B.kit }, h, x, z, r: 0.42 * (B.scale || 1), face: 0,
       hp: B.hp * hpMul, maxHp: B.hp * hpMul, dmg: B.dmg * (1 + 0.22 * tier), state: id === "grel" && !echo ? "patrol" : "intro", aware: 0, act: null, actT: 0, actDur: 0, stun: 0, poison: null,
-      m: null, mcd: 1.2, phase: 1, summonCd: 0, invis: 0, dead: false, deadT: 0, xp: B.xp * (echo ? 0.5 : 1), silver: B.silver * (echo ? 0.5 : 1), echo, id: Math.random() * 100, lost: 0, yielded: false };
+      posture: 0, postT: 0, m: null, mcd: 1.2, phase: 1, summonCd: 0, invis: 0, dead: false, deadT: 0, xp: B.xp * (echo ? 0.5 : 1), silver: B.silver * (echo ? 0.5 : 1), echo, id: Math.random() * 100, lost: 0, yielded: false };
     E.mk = world.marker(); E.bar = world.hpBar(); world.add(E.mk); world.add(E.bar);
     E.face = faceTo(x, z, P.x, P.z);
     G.enemies.push(E); return E;
@@ -125,7 +126,8 @@ export function createGame(ctx) {
     if (G.over || G.paused || !P || P.dead) return;
     if (what === "attack") attack();
     else if (what === "dodge") dodge();
-    else if (what === "sneak") { P.sneak = !P.sneak; ctx.sfx("tap"); }
+    else if (what === "sneak") { P.sneak = !P.sneak; ctx.sfx("ui"); }
+    else if (what === "parry") parry();
     else useAbility(what);
   };
 
@@ -147,19 +149,49 @@ export function createGame(ctx) {
     if (tgt) P.face = faceTo(P.x, P.z, tgt.x, tgt.z);
     P.combo = P.comboT > 0 ? (P.combo + 1) % 3 : 0;
     P.act = "slash" + (P.combo + 1); P.actT = 0; P.actDur = P.combo === 2 ? 0.5 : 0.34; P.hitDone = false; P.queued = false;
-    ctx.sfx("tap");
+    ctx.sfx(P.combo === 2 ? "heavy" : "swing");
   }
   function startTakedown(E) {
     P.act = "takedown"; P.actT = 0; P.actDur = 0.55; P.td = E; P.hitDone = false; P.face = faceTo(P.x, P.z, E.x, E.z);
     E.held = true; E.act = "hit"; E.actT = 0; E.actDur = 0.6;
-    slow = 0.35; world.shake(0.12);
+    slow = 0.55; world.shake(0.12); ctx.sfx("takedown"); ctx.vibrate(60);
+    world.cinematic((P.x + E.x) / 2, (P.z + E.z) / 2, P.face + Math.PI / 2 + (Math.random() < 0.5 ? 0.35 : -0.35), 0.8, 3.2 * Math.max(0.8, P.h.scale), 1.25 * Math.max(0.8, P.h.scale));
   }
   function dodge() {
     if (P.dodgeCd > 0 || P.act === "roll" || P.act === "takedown") return;
     const mx = inp.mx, mz = inp.mz;
     if (Math.hypot(mx, mz) > 0.2) P.face = Math.atan2(mx, mz);
     P.act = "roll"; P.actT = 0; P.actDur = 0.42; P.inv = 0.38; P.dodgeCd = 0.62;
-    W.fx.burst(P.x, 0.1, P.z, "snow", 6);
+    W.fx.burst(P.x, 0.1, P.z, "snow", 6); ctx.sfx("dodge");
+  }
+  // Parry: a short window that deflects melee blows and arrows. Success costs the attacker posture.
+  function parry() {
+    if (P.parryCd > 0 || P.act === "roll" || P.act === "takedown" || P.act === "spin") return;
+    const tgt = nearestFoe(4); if (tgt) P.face = faceTo(P.x, P.z, tgt.x, tgt.z);
+    P.act = "parry"; P.actT = 0; P.actDur = 0.36; P.parryT = 0.24; P.parryCd = 0.5;
+    ctx.sfx("swing", 0.5);
+  }
+  function parried(E, x, z) {
+    stats.parries++; P.parryT = 0; P.parryCd = 0; P.act = "parry"; P.actT = 0.1; P.actDur = 0.36;
+    const hx = (P.x + x) / 2, hz = (P.z + z) / 2;
+    W.fx.burst(hx, 1.2 * P.h.scale, hz, "parry", 30); W.fx.ring(hx, hz, 1.6, 0xfff0c0, 0.3, 1.0);
+    ctx.float(P.x, 2.2 * P.h.scale, P.z, "PARRY", "parry"); ctx.sfx("parry"); ctx.vibrate(40);
+    hitStop = 0.13; slow = Math.max(slow, 0.25); world.flash(0xfff4e0, 0.3); world.aberrate(0.8); world.punch(Math.sin(P.face), Math.cos(P.face), 0.2);
+    if (E && !E.dead) {
+      addPosture(E, E.boss ? 34 : 100);
+      if (!E.boss && E.stun <= 0) { E.act = "hit"; E.actT = 0; E.actDur = 0.5; clearDecal(E); }
+      if (E.boss && E.m && E.stun <= 0) { endMove(E); E.act = "hit"; E.mcd = 0.9; }
+    }
+  }
+  function addPosture(E, amt) {
+    if (E.dead || E.stun > 0) return;
+    E.posture = (E.posture || 0) + amt; E.postT = 1.6;
+    if (E.posture >= 100) {
+      E.posture = 0; E.stun = E.boss ? 2.8 : 2.2; stats.breaks++; clearDecal(E); if (E.boss && E.m) endMove(E);
+      ctx.float(E.x, 2.5 * (E.h.scale || 1), E.z, E.boss ? "POSTURE BROKEN" : "BROKEN", "crit"); ctx.sfx("break"); ctx.vibrate(70);
+      W.fx.ring(E.x, E.z, 2.2, 0xff3a2a, 0.45); W.fx.burst(E.x, 1.3, E.z, "ink", 24); world.flash(0x9b1420, 0.3); slow = Math.max(slow, 0.35);
+      if (!E.boss) { E.state = "suspicious"; E.aware = 0.5; }
+    }
   }
   function cdOf(id) { return ({ step: 7, smoke: 14, dart: 4, vanish: 20, storm: 12 })[id] * ctx.stats.cdMul; }
   function useAbility(id) {
@@ -173,7 +205,7 @@ export function createGame(ctx) {
       const side = [E.x + (P.x - E.x) / Math.hypot(P.x - E.x, P.z - E.z) * (E.r + 0.7), E.z + (P.z - E.z) / Math.hypot(P.x - E.x, P.z - E.z) * (E.r + 0.7)];
       const spot = inFloor(back[0], back[1], 0.1) ? back : side;
       P.x = spot[0]; P.z = spot[1]; pushOut(P); P.face = faceTo(P.x, P.z, E.x, E.z);
-      W.fx.burst(P.x, 0.2, P.z, "shadow", 22); ctx.sfx("up");
+      W.fx.burst(P.x, 0.2, P.z, "shadow", 22); ctx.sfx("art");
       if (canTakedown(E) && !E.boss) startTakedown(E);
       else { P.act = "slash3"; P.actT = 0.1; P.actDur = 0.5; P.hitDone = true; hurt(E, ctx.stats.dmg * (2.2 + 0.3 * rank), { crit: true, from: P, kind: "step" }); W.fx.slash(E.x, 1.1, E.z, P.face, 0xb08aff, false, 0.8, 1.2); }
     } else if (id === "smoke") {
@@ -184,19 +216,19 @@ export function createGame(ctx) {
         E.stun = E.boss ? 1.2 + 0.2 * rank : 2.5 + 0.4 * rank; E.act = null; clearDecal(E);
         if (!E.boss) { E.state = "suspicious"; E.aware = 0.4; E.lost = 0; } else if (E.m) endMove(E);
       }
-      ctx.sfx("hit"); world.shake(0.1);
+      ctx.sfx("smoke"); world.shake(0.1);
     } else if (id === "dart") {
       const E = nearestFoe(14);
       if (!E) { ctx.float(P.x, 1.6, P.z, "No target", "info"); return; }
       P.face = faceTo(P.x, P.z, E.x, E.z); P.act = "throw"; P.actT = 0; P.actDur = 0.35;
       shoot("dart", P.x, 1.1 * P.h.scale, P.z, E, 24, { dmg: ctx.stats.dmg * 0.6, poison: ctx.stats.dmg * (0.35 + 0.08 * rank), friendly: true });
-      ctx.sfx("tap");
+      ctx.sfx("swing", 0.6);
     } else if (id === "vanish") {
       P.vanish = 4 + 0.5 * rank; P.nextTD = true; P.h.setOpacity(0.22);
-      W.fx.burst(P.x, 0.3, P.z, "shadow", 30); ctx.sfx("up");
+      W.fx.burst(P.x, 0.3, P.z, "shadow", 30); ctx.sfx("art");
       for (const E of G.enemies) if (E.state === "alert" && !E.boss) { E.lost = 1.5; }
     } else if (id === "storm") {
-      P.act = "spin"; P.actT = 0; P.actDur = 1.1; P.stormTick = 0; P.stormRank = rank; ctx.sfx("up");
+      P.act = "spin"; P.actT = 0; P.actDur = 1.1; P.stormTick = 0; P.stormRank = rank; ctx.sfx("art");
     }
     P.cd[id] = cdOf(id);
   }
@@ -212,15 +244,23 @@ export function createGame(ctx) {
       if (E.boss && E.bdef.shield && !(E.m && E.m.name === "charge" && E.m.stage === 2)) blocked = true;
       if (E.def.guard && E.state === "alert" && E.act !== "windup" && E.act !== "strike" && o.kind !== "storm") blocked = true;
     }
-    if (blocked) { dmg *= 0.12; W.fx.burst(E.x + Math.sin(E.face) * 0.5, 1.1, E.z + Math.cos(E.face) * 0.5, "spark", 16); ctx.float(E.x, 2, E.z, "BLOCKED", "block"); ctx.sfx("hit"); }
+    if (blocked) { dmg *= 0.12; W.fx.burst(E.x + Math.sin(E.face) * 0.5, 1.1, E.z + Math.cos(E.face) * 0.5, "spark", 16); ctx.float(E.x, 2, E.z, "BLOCKED", "block"); ctx.sfx("clang"); hitStop = Math.max(hitStop, 0.04); addPosture(E, 6); }
     let crit = o.crit || (!blocked && Math.random() < ctx.stats.crit);
     if (crit && !o.crit) dmg *= 2;
     E.hp -= dmg;
     if (o.kind !== "poison") {
       if (E.def.kit === "dummy") { W.fx.burst(E.x, 1.1, E.z, "straw", 12); E.h.wob = 1; }
       else if (!blocked) W.fx.burst(E.x, 1.1 * (E.h.scale || 1), E.z, "blood", crit ? 16 : 9);
-      if (!blocked) world.shake(crit ? 0.18 : 0.07);
-      ctx.sfx("hit");
+      if (!blocked) {
+        world.shake(crit ? 0.18 : 0.07);
+        const dx = E.x - from.x, dz = E.z - from.z, dl = Math.hypot(dx, dz) || 1;
+        world.punch(dx / dl, dz / dl, crit ? 0.22 : 0.09);
+        hitStop = Math.max(hitStop, crit ? 0.09 : o.kind === "storm" ? 0.02 : 0.05);
+        ctx.sfx(crit ? "crit" : "hit"); ctx.vibrate(crit ? 30 : 12);
+        if (crit) { world.aberrate(0.6); W.fx.burst(E.x, 1.1 * (E.h.scale || 1), E.z, "ink", 10); }
+        if (o.kind === "melee" || o.kind === "step") addPosture(E, (crit ? 12 : 7) * (o.kind === "step" ? 3 : 1));
+        else if (o.kind === "storm") addPosture(E, 3);
+      }
     }
     ctx.float(E.x, 2.1 * (E.h.scale || 1), E.z, Math.round(dmg) + (crit ? "!" : ""), crit ? "crit" : o.kind === "poison" ? "poison" : "");
     E.hurtT = 3;
@@ -246,19 +286,21 @@ export function createGame(ctx) {
     for (let i = 0; i < n; i++) drop("coin", E.x + rnd(-0.5, 0.5), E.z + rnd(-0.5, 0.5), each);
     if (!E.boss && E.def.kit !== "dummy" && Math.random() < 0.13) drop("orb", E.x, E.z, 0.2);
     ctx.onKill && ctx.onKill(E, kind);
-    if (E.boss) { slow = 1.1; world.shake(0.5); ctx.sfx("rare"); }
+    if (E.boss) { slow = 1.4; world.shake(0.5); ctx.sfx("break"); world.flash(0xffffff, 0.5); W.fx.burst(E.x, 1.4, E.z, "ink", 40); world.cinematic(E.x, E.z, faceTo(E.x, E.z, P.x, P.z) + 1.2, 1.5, 4.2, 1.6); }
   }
   function damagePlayer(amount, src) {
     if (P.dead || G.over) return;
+    if (P.parryT > 0 && src && src.by) { parried(src.by, src.x, src.z); return; }
     if (P.inv > 0) { if (!src.dodged) { src.dodged = true; stats.dodges++; ctx.float(P.x, 1.8, P.z, "DODGE", "dodge"); slow = Math.max(slow, 0.2); } return; }
     P.hp -= amount; stats.dmgTaken += amount;
+    world.flash(0x9b1420, 0.22); world.aberrate(0.7); ctx.vibrate(50); hitStop = Math.max(hitStop, 0.06);
     if (bossE && !bossE.dead) bossE.tookHit = true;
-    ctx.float(P.x, 1.9 * P.h.scale, P.z, "-" + Math.round(amount), "hurt"); ctx.sfx("bad"); world.shake(0.22);
+    ctx.float(P.x, 1.9 * P.h.scale, P.z, "-" + Math.round(amount), "hurt"); ctx.sfx("hurt"); world.shake(0.22);
     W.fx.burst(P.x, 1, P.z, "blood", 8);
     if (P.act !== "roll" && P.act !== "takedown" && P.act !== "spin") P.hitT = 0.2;
     if (src && src.x != null) { const d = Math.hypot(P.x - src.x, P.z - src.z) || 1; move(P, ((P.x - src.x) / d) * 0.35, ((P.z - src.z) / d) * 0.35); }
     if (P.vanish > 0) { P.vanish = 0; P.h.setOpacity(1); }
-    if (P.hp <= 0) { P.hp = 0; P.dead = true; P.act = "dead"; P.actT = 0; P.actDur = 1; ctx.sfx("bad"); slow = 0.8; finish(false); }
+    if (P.hp <= 0) { P.hp = 0; P.dead = true; P.act = "dead"; P.actT = 0; P.actDur = 1; ctx.sfx("defeat"); slow = 0.8; finish(false); }
   }
   function alert(E, shout) {
     if (E.state === "alert" || E.dead) return;
@@ -266,7 +308,7 @@ export function createGame(ctx) {
     if (!G.endless) stats.detected = true;
     E.mk.show("!", "#ff3b2f"); E.mkT = 1.4;
     if (E.def.flee) { const c = W.floors[0]; const corners = [[c[0] + 0.5, c[1] + 0.5], [c[2] - 0.5, c[1] + 0.5], [c[0] + 0.5, c[3] - 0.5], [c[2] - 0.5, c[3] - 0.5]]; E.flee = corners.sort((a, b) => Math.hypot(b[0] - P.x, b[1] - P.z) - Math.hypot(a[0] - P.x, a[1] - P.z))[0]; }
-    if (shout) { ctx.sfx("bad"); for (const O of G.enemies) if (O !== E && !O.dead && !O.boss && O.state !== "alert" && Math.hypot(O.x - E.x, O.z - E.z) < 8) { O.aware = 1; setTimeout(() => alert(O, false), 250); } }
+    if (shout) { ctx.sfx("alert"); for (const O of G.enemies) if (O !== E && !O.dead && !O.boss && O.state !== "alert" && Math.hypot(O.x - E.x, O.z - E.z) < 8) { O.aware = 1; setTimeout(() => alert(O, false), 250); } }
     if (G.enemies.some((B) => B.boss && B.state === "patrol")) for (const B of G.enemies) if (B.boss && B.state === "patrol" && Math.hypot(B.x - E.x, B.z - E.z) < 12) B.state = "intro";
   }
 
@@ -332,7 +374,7 @@ export function createGame(ctx) {
           clearDecal(E); E.act = "strike"; E.actT = 0; E.actDur = 0.3;
           const a = Math.abs(angDiff(E.face, faceTo(E.x, E.z, P.x, P.z)));
           W.fx.slash(E.x, 1.2 * (E.h.scale || 1), E.z, E.face, 0xffc8a0, m.n % 2 === 1, 0.3, 1.2 * (B.scale || 1));
-          if (Math.hypot(P.x - E.x, P.z - E.z) < r + P.r && a < arc / 2 + 0.2) damagePlayer(E.dmg * dmgMul, { x: E.x, z: E.z, id: m });
+          if (Math.hypot(P.x - E.x, P.z - E.z) < r + P.r && a < arc / 2 + 0.2) damagePlayer(E.dmg * dmgMul, { x: E.x, z: E.z, id: m, by: E });
           m.n++; m.stage = 2; m.t = 0; m.dodgedReset = true;
         }
       } else if (m.stage === 2) { E.actT = m.t; if (m.t > 0.2) { if (m.n >= count) endMove(E); else { m.stage = 0; m.t = 0; } } }
@@ -346,11 +388,11 @@ export function createGame(ctx) {
         else if (m.stage === 2) {
           E.act = m.name === "charge" ? "charge" : "strike"; E.actT = Math.min(0.29, m.t); E.actDur = 0.3; E.moving = 1;
           const sp = (m.name === "charge" ? 17 : 19) * dt, res = move(E, Math.sin(m.dir) * sp, Math.cos(m.dir) * sp);
-          if (!m.hit && Math.hypot(P.x - E.x, P.z - E.z) < 1.0 + P.r) { m.hit = true; damagePlayer(E.dmg * (m.name === "charge" ? 1.5 : 1.3), { x: E.x, z: E.z, id: m }); }
+          if (!m.hit && Math.hypot(P.x - E.x, P.z - E.z) < 1.0 + P.r) { m.hit = true; damagePlayer(E.dmg * (m.name === "charge" ? 1.5 : 1.3), { x: E.x, z: E.z, id: m, by: E }); }
           if (Math.random() < 0.6) W.fx.burst(E.x, 0.1, E.z, "snow", 2);
           const traveled = Math.hypot(E.x - m.ox, E.z - m.oz);
           if (res || traveled >= len - 0.2) {
-            if (m.name === "charge" && res) { E.stun = 2.8; world.shake(0.45); W.fx.burst(E.x + Math.sin(m.dir) * 0.6, 1.2, E.z + Math.cos(m.dir) * 0.6, "spark", 30); ctx.float(E.x, 2.6, E.z, "STUNNED", "crit"); ctx.sfx("hit"); }
+            if (m.name === "charge" && res) { E.stun = 2.8; world.shake(0.45); W.fx.burst(E.x + Math.sin(m.dir) * 0.6, 1.2, E.z + Math.cos(m.dir) * 0.6, "spark", 30); ctx.float(E.x, 2.6, E.z, "STUNNED", "crit"); ctx.sfx("break"); }
             endMove(E);
           }
         }
@@ -363,8 +405,8 @@ export function createGame(ctx) {
         E.actT = m.t;
         if (m.stage === 1 && m.t >= 0.45 * fast) {
           clearDecal(E);
-          for (let i = 0; i < n; i++) shoot(B.kit === "varek" ? "vial" : "knife", E.x, 1.2, E.z, P, B.kit === "varek" ? 12 : 15, { angle: E.face + (i - (n - 1) / 2) * 0.24, dmg: E.dmg * 0.6, hostile: true, life: 1.2, poison: B.kit === "varek" ? E.dmg * 0.15 : 0 });
-          ctx.sfx("tap"); m.stage = 2; m.t = 0;
+          for (let i = 0; i < n; i++) shoot(B.kit === "varek" ? "vial" : "knife", E.x, 1.2, E.z, P, B.kit === "varek" ? 12 : 15, { angle: E.face + (i - (n - 1) / 2) * 0.24, dmg: E.dmg * 0.6, hostile: true, life: 1.2, poison: B.kit === "varek" ? E.dmg * 0.15 : 0, owner: E });
+          ctx.sfx("swing"); m.stage = 2; m.t = 0;
         }
         if (m.stage === 2 && m.t > 0.3) endMove(E);
         break;
@@ -398,7 +440,7 @@ export function createGame(ctx) {
           }
         } else if (m.stage === 2) {
           E.act = "windup"; E.actT = m.t; E.actDur = 0.42 * fast; E.decal.set(m.t / E.actDur);
-          if (m.t >= E.actDur) { clearDecal(E); E.act = "strike"; E.actT = 0; E.actDur = 0.3; W.fx.slash(E.x, 1.2, E.z, E.face, 0xc0a0ff); if (Math.hypot(P.x - E.x, P.z - E.z) < 2.5 + P.r && Math.abs(angDiff(E.face, faceTo(E.x, E.z, P.x, P.z))) < 1.15) damagePlayer(E.dmg * 1.1, { x: E.x, z: E.z, id: m }); m.stage = 3; m.t = 0; }
+          if (m.t >= E.actDur) { clearDecal(E); E.act = "strike"; E.actT = 0; E.actDur = 0.3; W.fx.slash(E.x, 1.2, E.z, E.face, 0xc0a0ff); if (Math.hypot(P.x - E.x, P.z - E.z) < 2.5 + P.r && Math.abs(angDiff(E.face, faceTo(E.x, E.z, P.x, P.z))) < 1.15) damagePlayer(E.dmg * 1.1, { x: E.x, z: E.z, id: m, by: E }); m.stage = 3; m.t = 0; }
         } else if (m.stage === 3 && m.t > 0.35) endMove(E);
         break;
       }
@@ -407,7 +449,7 @@ export function createGame(ctx) {
         if (m.t > 0.9 && m.stage === 0) {
           m.stage = 1; const k = 2; const [x1, z1, x2, z2] = W.floors[0];
           for (let i = 0; i < k; i++) { const sx = i % 2 ? x1 + 1.2 : x2 - 1.2, sz = rnd(z1 + 2, z2 - 2); const mn = spawn(B.p2.minion, sx, sz, null, { alert: true }); mn.minion = true; W.fx.burst(sx, 0.4, sz, "smoke", 20); }
-          ctx.sfx("bad"); W.fx.burst(E.x, 2, E.z, "magic", 20, 0xff4a3a);
+          ctx.sfx("alert"); W.fx.burst(E.x, 2, E.z, "magic", 20, 0xff4a3a);
         }
         if (m.t > 1.3) endMove(E);
         break;
@@ -462,7 +504,7 @@ export function createGame(ctx) {
         const rate = 1.9 * (1 - (d / def.vision) * 0.55) * (P.sneak ? 0.42 : 1) * ctx.stats.silenceMul * (P.act && P.act !== "roll" ? 1.6 : 1);
         E.aware += rate * dt; E.lastX = P.x; E.lastZ = P.z;
         if (E.aware >= 1) alert(E, true);
-        else if (E.aware > 0.3 && E.state === "patrol") E.state = "suspicious";
+        else if (E.aware > 0.3 && E.state === "patrol") { E.state = "suspicious"; ctx.sfx("suspicious"); }
       } else { E.aware = Math.max(0, E.aware - 0.22 * dt); if (E.state === "suspicious" && E.aware < 0.12) { E.state = "patrol"; } }
     }
     if (E.state === "alert") {
@@ -481,11 +523,11 @@ export function createGame(ctx) {
         if (def.ranged) E.face = turn(E.face, toP, dt * 4);
         if (E.actT >= E.actDur) {
           clearDecal(E);
-          if (def.ranged) { shoot("arrow", E.x, 1.3, E.z, P, 17, { dmg: E.dmg, hostile: true, life: 1.1 }); E.act = null; ctx.sfx("tap"); }
+          if (def.ranged) { shoot("arrow", E.x, 1.3, E.z, P, 17, { dmg: E.dmg, hostile: true, life: 1.1, owner: E }); E.act = null; ctx.sfx("bow"); }
           else {
             E.act = "strike"; E.actT = 0; E.actDur = 0.35;
             if (def.kit !== "wolf") W.fx.slash(E.x, 1.1 * (E.h.scale || 1), E.z, E.face, 0xffd0b0, Math.random() < 0.5, 0.3, 0.9);
-            if (d < def.reach + P.r + 0.2 && Math.abs(angDiff(E.face, toP)) < 1.1) damagePlayer(E.dmg, { x: E.x, z: E.z, id: E.actT0 = {} });
+            if (d < def.reach + P.r + 0.2 && Math.abs(angDiff(E.face, toP)) < 1.1) damagePlayer(E.dmg, { x: E.x, z: E.z, id: E.actT0 = {}, by: E });
           }
           E.cd = def.cd * rnd(0.8, 1.25);
         }
@@ -539,7 +581,7 @@ export function createGame(ctx) {
       spawn(pool[Math.floor(Math.random() * pool.length)], x, z, null, { alert: true });
       W.fx.burst(x, 0.5, z, "smoke", 10);
     }
-    ctx.toast(`Wave ${wave}`); ctx.sfx("up");
+    ctx.toast(`Wave ${wave}`); ctx.sfx("alert");
   }
 
   // ---------- end ----------
@@ -549,7 +591,7 @@ export function createGame(ctx) {
     const st3 = L.star3, ratio = P.hp / P.maxHp;
     const stars = win ? [true, ratio >= 0.5, st3 === "time" ? t <= L.par : st3 === "ghost" ? !stats.detected : st3 === "untouched" ? stats.dmgTaken < P.maxHp * 0.25 : false] : [false, false, false];
     endResult = { win, reason, stars, time: t, ...stats, wave, endless: G.endless, noHitBoss: win && !!L.boss && stats.dmgTaken === 0 };
-    if (win) { ctx.sfx("rare"); slow = 1.2; }
+    if (win) { ctx.sfx("victory"); slow = 1.2; }
   }
 
   // ---------- per-frame ----------
@@ -573,11 +615,13 @@ export function createGame(ctx) {
   G.update = function (rdt, rt) {
     if (!P) return;
     if (G.paused) { world.update(0, rt); return; }
-    const scale = slow > 0 ? 0.3 : 1; slow = Math.max(0, slow - rdt);
+    let scale = slow > 0 ? 0.3 : 1; slow = Math.max(0, slow - rdt);
+    if (hitStop > 0) { hitStop -= rdt; scale = 0.03; }
+    if (world.inCinematic()) scale = Math.min(scale, 0.3);
     const dt = Math.min(0.05, rdt) * scale; t += dt;
     const S = ctx.stats;
     // --- player ---
-    P.inv = Math.max(0, P.inv - dt); P.dodgeCd -= dt; P.comboT -= dt; P.hitT = Math.max(0, (P.hitT || 0) - dt);
+    P.inv = Math.max(0, P.inv - dt); P.dodgeCd -= dt; P.parryT = Math.max(0, P.parryT - dt); P.parryCd -= dt; P.comboT -= dt; P.hitT = Math.max(0, (P.hitT || 0) - dt);
     for (const k in P.cd) P.cd[k] = Math.max(0, P.cd[k] - dt);
     if (P.vanish > 0) { P.vanish -= dt; if (P.vanish <= 0) { P.h.setOpacity(1); } }
     let mx = inp.mx, mz = inp.mz; const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
@@ -611,6 +655,7 @@ export function createGame(ctx) {
           if (P.actT >= P.actDur) P.act = null;
         } else if (P.act === "roll") {
           const sp = 9.5 * dt * (1 - p * 0.5); move(P, Math.sin(P.face) * sp, Math.cos(P.face) * sp); P.moveAmt = 1;
+          for (const j of ["head", "chest", "hips", "handL", "handR", "knL", "knR"]) { P.h.J[j].getWorldPosition(tmpV); W.fx.burst(tmpV.x, tmpV.y, tmpV.z, "ghost", 1); }
           if (P.actT >= P.actDur) P.act = null;
         } else if (P.act === "spin") {
           P.face += dt * 16; P.stormTick -= dt; const sp = 2.2 * dt; if (ml > 0.2) move(P, (mx / Math.max(ml, 1)) * sp, (mz / Math.max(ml, 1)) * sp);
@@ -633,6 +678,7 @@ export function createGame(ctx) {
         continue;
       }
       if (E.stun > 0) E.stun -= dt;
+      if (E.posture > 0) { E.postT -= dt; if (E.postT <= 0) E.posture = Math.max(0, E.posture - (E.boss ? 9 : 14) * dt); }
       if (E.mkT > 0) { E.mkT -= dt; if (E.mkT <= 0 && E.state === "alert") E.mk.visible = false; }
       updateEnemy(E, dt);
       if (E.def.hidden) { const d = Math.hypot(E.x - P.x, E.z - P.z), vis = d < 4.6 || (E.state === "alert" && d < 6.5) || E.stun > 0; E.h.root.visible = vis; E.eyes.visible = !vis && d < 12; E.eyes.children.forEach((s) => (s.material.opacity = 0.5 + Math.sin(t * 3 + E.id) * 0.3)); }
@@ -653,6 +699,13 @@ export function createGame(ctx) {
       if (pr.kind === "vial") pr.m.rotation.x += dt * 10;
       let done = pr.life <= 0;
       if (!done && W.colliders.some((c) => c.block && c.type === "box" && pr.x > c.x1 && pr.x < c.x2 && pr.z > c.z1 && pr.z < c.z2)) done = true;
+      if (!done && pr.hostile && Math.hypot(pr.x - P.x, pr.z - P.z) < 0.9 + P.r * 0.5 && P.parryT > 0) {
+        // deflect: send it back at whoever threw it
+        const back = pr.owner && !pr.owner.dead ? pr.owner : nearestFoe(20); parried(null, pr.x, pr.z);
+        pr.hostile = false; pr.friendly = true; pr.dmg *= 1.5; pr.poison = 0; pr.life = 1.2;
+        const a = back ? faceTo(pr.x, pr.z, back.x, back.z) : Math.atan2(-pr.vx, -pr.vz), sp = Math.hypot(pr.vx, pr.vz) * 1.3;
+        pr.vx = Math.sin(a) * sp; pr.vz = Math.cos(a) * sp;
+      }
       if (!done && pr.hostile && Math.hypot(pr.x - P.x, pr.z - P.z) < 0.5 + P.r * 0.5) {
         if (P.inv > 0) damagePlayer(0, pr); else { damagePlayer(pr.dmg, { x: pr.x - pr.vx * 0.05, z: pr.z - pr.vz * 0.05 }); if (pr.poison) G.pools.push({ x: P.x, z: P.z, r: 1.4, t: 3, dps: pr.poison * 2, d: W.fx.decal("circle", P.x, P.z, { r: 1.4, color: 0x3aff3a }) }); done = true; }
       }
@@ -679,8 +732,8 @@ export function createGame(ctx) {
       if (pk.t > 0.5 && d < 3.2 && !P.dead) { const a = faceTo(pk.x, pk.z, P.x, P.z), sp = (4 + (3.2 - d) * 6) * dt; pk.x += Math.sin(a) * sp; pk.z += Math.cos(a) * sp; pk.y += (1 - pk.y) * dt * 5; }
       pk.m.position.set(pk.x, pk.y + Math.sin(t * 4 + i) * 0.05, pk.z); pk.m.rotation.y += dt * 4;
       if (pk.t > 0.5 && d < 0.55) {
-        if (pk.kind === "coin") { stats.silver += pk.value; ctx.sfx("coin"); }
-        else { P.hp = Math.min(P.maxHp, P.hp + P.maxHp * pk.value); stats.orbs++; W.fx.burst(P.x, 0.4, P.z, "heal", 16); ctx.float(P.x, 2, P.z, "+" + Math.round(P.maxHp * pk.value), "heal"); ctx.sfx("up"); }
+        if (pk.kind === "coin") { stats.silver += pk.value; ctx.sfx("coin"); ctx.vibrate(5); }
+        else { P.hp = Math.min(P.maxHp, P.hp + P.maxHp * pk.value); stats.orbs++; W.fx.burst(P.x, 0.4, P.z, "heal", 16); ctx.float(P.x, 2, P.z, "+" + Math.round(P.maxHp * pk.value), "heal"); ctx.sfx("heal"); }
         pk.m.parent && pk.m.parent.remove(pk.m); G.pickups.splice(i, 1);
       }
     }
@@ -698,7 +751,7 @@ export function createGame(ctx) {
     if (L.hints && hintI < L.hints.length && t > 0.6 + hintI * 6.5) ctx.hint(L.hints[hintI++]);
     // --- animate ---
     const pAct = P.dead ? "dead" : P.act || (P.hitT > 0 ? "hit" : null);
-    animate(P.h, { move: P.moveAmt, speed: P.moveAmt * P.speed * (P.sneak ? 0.5 : 1), sneak: P.sneak && !P.act, act: pAct === "slash1" || pAct === "slash2" || pAct === "slash3" || pAct === "takedown" || pAct === "roll" || pAct === "throw" || pAct === "dead" || pAct === "spin" ? pAct : pAct === "hit" ? "hit" : null, p: P.act ? P.actT / P.actDur : pAct === "hit" ? 1 - P.hitT / 0.2 : P.dead ? P.actT : 0, dt, t });
+    animate(P.h, { move: P.moveAmt, speed: P.moveAmt * P.speed * (P.sneak ? 0.5 : 1), sneak: P.sneak && !P.act, act: pAct === "slash1" || pAct === "slash2" || pAct === "slash3" || pAct === "takedown" || pAct === "roll" || pAct === "throw" || pAct === "dead" || pAct === "spin" || pAct === "parry" ? pAct : pAct === "hit" ? "hit" : null, p: P.act ? P.actT / P.actDur : pAct === "hit" ? 1 - P.hitT / 0.2 : P.dead ? P.actT : 0, dt, t });
     if (P.dead) P.actT += dt;
     for (const E of G.enemies) {
       if (!E.h.root.parent) continue;
@@ -707,14 +760,22 @@ export function createGame(ctx) {
       if (E.act === "strike" && !E.boss && !E.dead) E.actT += 0;
     }
     placeActors(dt);
+    const wpn = P.h.J.weapon;
+    if (wpn) { const len = wpn.userData.len || 0.5; wpn.localToWorld(tmpB.set(0, -0.12, 0)); wpn.localToWorld(tmpT.set(0, -(len + 0.12), 0)); P.trail.push(tmpB, tmpT, !!P.act && /slash|spin|takedown/.test(P.act), dt); }
     if (goalBeacon) { goalBeacon.children[0].material.opacity = 0.08 + Math.sin(t * 3) * 0.04; goalBeacon.rotation.y += dt; }
     const boss = G.enemies.find((E) => E.boss && E.state === "fight" && !E.dead);
     world.camFollow(P.x, P.z, rdt, boss ? 1.12 : 1);
     world.setFocusLight(P.x, P.z);
     world.update(dt, rt);
     // HUD at ~12 fps
-    hudT -= rdt; if (hudT <= 0) { hudT = 0.08; ctx.hud(hudState()); }
+    hudT -= rdt; if (hudT <= 0) {
+      hudT = 0.08; ctx.hud(hudState());
+      const bossOn = G.enemies.some((E) => E.boss && E.state === "fight" && !E.dead), fight = G.enemies.some((E) => !E.dead && E.state === "alert" && Math.hypot(E.x - P.x, E.z - P.z) < 16);
+      const low = P.dead ? 0 : Math.max(0, (0.3 - P.hp / P.maxHp) / 0.3);
+      ctx.music(G.over ? "silent" : bossOn ? "boss" : fight ? "combat" : "explore", low); world.lowHealth(low * 0.7);
+    }
   };
+  const tmpV = new THREE.Vector3(), tmpB = new THREE.Vector3(), tmpT = new THREE.Vector3();
   function bladeColor() { const b = LOOKS.blade.find((x) => x.id === ctx.look.blade); return b && b.glow ? b.glow : 0xdff4ff; }
   function hudState() {
     const S = ctx.stats, g = L.goal ? L.goal.type : "kill";
@@ -726,7 +787,8 @@ export function createGame(ctx) {
     const cds = {}; for (const id of ["step", "smoke", "dart", "vanish", "storm"]) cds[id] = S.abilities[id] ? (P.cd[id] || 0) / cdOf(id) : -1;
     const maxAware = Math.max(0, ...G.enemies.filter((E) => !E.dead && !E.boss).map((E) => (E.state === "alert" ? 1 : E.aware)));
     return { hp: P.hp, maxHp: P.maxHp, obj, cds, td: !!G.takedownTarget(), sneak: P.sneak, vanish: P.vanish > 0, aware: maxAware, time: t, silver: stats.silver,
-      boss: boss && !boss.dead ? { name: boss.bdef.name, title: boss.bdef.title, f: boss.hp / boss.maxHp, phase: boss.phase } : null };
+      boss: boss && !boss.dead ? { name: boss.bdef.name, title: boss.bdef.title, f: boss.hp / boss.maxHp, phase: boss.phase, posture: boss.stun > 0 ? 1 : boss.posture / 100, broken: boss.stun > 0 } : null,
+      finisher: !!(G.takedownTarget() || (boss && boss.stun > 0 && Math.hypot(boss.x - P.x, boss.z - P.z) < 2.6)), parryCd: Math.max(0, P.parryCd) };
   }
   // Story scenes play over the live level: everyone idles and the camera circles the hero.
   G.cinema = function (rdt, rt, angle) {

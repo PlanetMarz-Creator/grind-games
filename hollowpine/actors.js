@@ -362,6 +362,7 @@ const ACTS = {
   kneel: [[0, { by: -0.46, hipL_rx: -1.55, knL_rx: 1.55, hipR_rx: 0.15, knR_rx: 1.6, sp_rx: 0.35, nk_rx: 0.4, shL_rx: -0.4, elL_rx: -0.6, shR_rx: -0.3, elR_rx: -0.4 }], [1, { by: -0.46, hipL_rx: -1.55, knL_rx: 1.55, hipR_rx: 0.15, knR_rx: 1.6, sp_rx: 0.35, nk_rx: 0.4, shL_rx: -0.4, elL_rx: -0.6, shR_rx: -0.3, elR_rx: -0.4 }]],
   sit: [[0, { by: -0.72, hipL_rx: -1.45, hipL_rz: 0.55, knL_rx: 2.3, hipR_rx: -1.45, hipR_rz: -0.55, knR_rx: 2.3, shL_rx: -0.6, elL_rx: -1.0, shR_rx: -0.6, elR_rx: -1.0, sp_rx: 0.15 }], [1, { by: -0.72, hipL_rx: -1.45, hipL_rz: 0.55, knL_rx: 2.3, hipR_rx: -1.45, hipR_rz: -0.55, knR_rx: 2.3, shL_rx: -0.6, elL_rx: -1.0, shR_rx: -0.6, elR_rx: -1.0, sp_rx: 0.15 }]],
   stun: [[0, { nk_rx: 0.5, sp_rx: 0.35, shL_rx: 0.1, shR_rx: 0.1, elR_rx: -0.1, by: -0.06 }], [1, { nk_rx: 0.5, sp_rx: 0.35, by: -0.06 }]],
+  parry: [[0, { shR_rx: -1.2, shR_rz: 0.2, elR_rx: -0.8, sp_ry: 0.2 }], [0.25, { shR_rx: -1.75, shR_rz: 0.95, elR_rx: -1.35, sp_ry: -0.35, by: -0.1, shL_rx: -0.6, elL_rx: -0.9 }], [1, { shR_rx: -1.6, shR_rz: 0.8, elR_rx: -1.2, sp_ry: -0.25, by: -0.08 }]],
   charge: [[0, { sp_rx: 0.45, shL_rx: -1.3, elL_rx: -1.0, shR_rx: 0.4, elR_rx: -0.3 }], [1, { sp_rx: 0.45, shL_rx: -1.3, elL_rx: -1.0, shR_rx: 0.4 }]],
 };
 const JKEYS = { sp: "spine", ch: "chest", nk: "neck", shL: "shL", elL: "elL", shR: "shR", elR: "elR", hipL: "hipL", knL: "knL", hipR: "hipR", knR: "knR" };

@@ -27,7 +27,11 @@ A 3D action RPG built on the short story in [`hollowpine/data.js`](hollowpine/da
 - **Bosses** telegraph every attack on the ground in red: sweeps, lunges, charges into pillars, slams, poison pools, blood rain.
 - **Character creator:** skin, hair, colour, eyes, 10 outfits, masks (hood, oni, fox, blindfold), scarves, 6 blades, scars, beards. Premium looks cost silver or jade; some are earned only through the story.
 - **Progression:** XP levels with skill points, rankable arts, gear upgrades, 3 stars per chapter, 30 achievements you claim for silver and jade, daily streak, endless mode.
-- **Controls:** drag the left side to move, buttons on the right; keyboard WASD, J strike, Space dodge, C sneak, 1–5 arts.
+- **Ink & Steel style:** a depth-based ink-outline pass and a near-monochrome grade that keeps only blood-red and fire, brush-kanji act title cards (悲劇 Tragedy · 修行 Training · 復讐 Vengeance · 力 Strength), and ink-wipe transitions. You can switch to the plain color style from the pause menu.
+- **Combat feel:** hit-stop, camera punch and FOV kick, blade trails, dodge afterimages, chromatic flashes, and a slow-motion kill cam on takedowns and boss kills. Phones vibrate on hits.
+- **Parry and posture (Sekiro-style):** tap 🛡 as a blow lands to deflect it, or send arrows and knives back at their owner. Parries and hits fill an enemy's posture. When it breaks, ⚔ becomes a FINISHER.
+- **Procedural soundtrack:** koto, shakuhachi-style flute, a drone and taiko, all synthesized with Web Audio. The music moves from exploration to combat to boss layers, and a heartbeat plays at low health. Every sword swing, clang and parry is synthesized too.
+- **Controls:** drag the left side to move, buttons on the right; keyboard WASD, J strike, Space dodge, L parry, C sneak, 1–5 arts.
 
 ## Living worlds and extras
 

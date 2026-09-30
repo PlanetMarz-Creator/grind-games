@@ -27,9 +27,51 @@ let stage, scene, camera, renderer, key, hemi, pmrem, levelGroup, focusLight, fi
 const W = { colliders: [], floors: [], fires: [], waters: [], mist: [], updaters: [] };
 export default W;
 
+// ---------- the ink pass: depth-edge brush outlines + a graded, near-monochrome palette that keeps its reds ----------
+const InkShader = {
+  uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, res: { value: new THREE.Vector2(1, 1) }, cameraNear: { value: 0.3 }, cameraFar: { value: 900 },
+    uInk: { value: 1 }, uSat: { value: 0.5 }, uWarm: { value: 1 }, uAb: { value: 0 }, uFlash: { value: new THREE.Color(0) }, uFlashA: { value: 0 }, uVig: { value: 0 } },
+  vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
+  fragmentShader: `#include <packing>
+    uniform sampler2D tDiffuse, tDepth; uniform vec2 res; uniform float cameraNear, cameraFar, uInk, uSat, uWarm, uAb, uFlashA, uVig; uniform vec3 uFlash; varying vec2 vUv;
+    float vz(vec2 uv){ return -perspectiveDepthToViewZ(texture2D(tDepth, uv).x, cameraNear, cameraFar); }
+    void main(){
+      vec2 dir = (vUv - 0.5) * uAb * 0.018;
+      vec4 c = texture2D(tDiffuse, vUv);
+      if (uAb > 0.001) { c.r = texture2D(tDiffuse, vUv + dir).r; c.b = texture2D(tDiffuse, vUv - dir).b; }
+      float edge = 0.0;
+      if (uInk > 0.001) {
+        vec2 px = 1.35 / res;
+        float z = vz(vUv), zl = vz(vUv - vec2(px.x, 0.0)), zr = vz(vUv + vec2(px.x, 0.0)), zu = vz(vUv + vec2(0.0, px.y)), zd = vz(vUv - vec2(0.0, px.y));
+        float lap = abs(zl + zr + zu + zd - 4.0 * z) / max(z, 0.5);
+        edge = smoothstep(0.02, 0.07, lap) * (1.0 - smoothstep(35.0, 110.0, z));
+      }
+      float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+      float red = clamp((c.r - max(c.g, c.b)) / max(c.r, 0.001) * 1.8, 0.0, 1.0);
+      float warmFire = clamp((c.r + c.g * 0.5 - c.b * 1.5) * 0.6, 0.0, 1.0) * step(1.2, l);
+      float sat = mix(1.0, mix(uSat, 1.3, max(red, warmFire)), uInk);
+      vec3 g = mix(vec3(l), c.rgb, sat);
+      g *= mix(vec3(1.0), vec3(1.05, 1.0, 0.9), uWarm * uInk);
+      g = mix(g, vec3(0.01, 0.008, 0.008), edge * uInk * 0.92);
+      float d = distance(vUv, vec2(0.5));
+      g *= 1.0 - uVig * smoothstep(0.25, 0.8, d);
+      g = mix(g, uFlash * 2.0, uFlashA);
+      gl_FragColor = vec4(g, c.a);
+    }`,
+};
+let ink;
+export function setInk(on) { if (!ink) return; ink.uniforms.uInk.value = on ? 1 : 0; ink.uniforms.uWarm.value = on ? 1 : 0; }
+export function flash(color, a = 0.6) { if (!ink) return; ink.uniforms.uFlash.value.set(color); ink.uniforms.uFlashA.value = Math.max(ink.uniforms.uFlashA.value, a); }
+export function aberrate(a = 1) { if (ink) ink.uniforms.uAb.value = Math.max(ink.uniforms.uAb.value, a); }
+export function lowHealth(v) { if (ink) ink.uniforms.uVig.value = v; }
+
 export function init(canvas) {
-  stage = createStage(canvas, { exposure: 0.6, bloom: 0.55, bloomThreshold: 0.92, bloomRadius: 0.55, fov: 50, maxDpr: 1.75 });
+  stage = createStage(canvas, { exposure: 0.6, bloom: 0.55, bloomThreshold: 0.92, bloomRadius: 0.55, fov: 50, maxDpr: 1.75, depth: true });
   ({ scene, camera, renderer } = stage);
+  ink = new THREE.ShaderPass(InkShader);
+  const baseRender = ink.render.bind(ink);
+  ink.render = (r, write, read, dt, mask) => { ink.uniforms.tDepth.value = read.depthTexture; ink.uniforms.res.value.set(read.width, read.height); ink.uniforms.cameraNear.value = camera.near; ink.uniforms.cameraFar.value = camera.far; baseRender(r, write, read, dt, mask); };
+  stage.composer.insertPass(ink, 1);
   camera.near = 0.3; camera.far = 900; camera.updateProjectionMatrix();
   pmrem = new THREE.PMREMGenerator(renderer);
   key = keyLight(scene, { mapSize: 2048, size: 16, intensity: 2.6 });
@@ -228,6 +270,9 @@ class FX {
       else if (kind === "poison") this.add.spawn(x + R(0.3), y + Math.random() * 0.8, z + R(0.3), R(0.6), 0.8 + Math.random(), R(0.6), 0.6 + Math.random() * 0.4, 0.14, 0.03, [0.4, 2.2, 0.5, 0.9], [0.1, 0.6, 0.1, 0], -0.5, 1);
       else if (kind === "gold") this.add.spawn(x, y, z, R(2), Math.random() * 3 + 1, R(2), 0.6, 0.12, 0.02, [3, 2.2, 0.6, 1], [2, 1, 0.2, 0], 6, 1);
       else if (kind === "snow") this.alpha.spawn(x + R(0.4), y, z + R(0.4), R(2.5), Math.random() * 2, R(2.5), 0.6 + Math.random() * 0.4, 0.14, 0.26, [0.95, 0.96, 1, 0.8], [0.95, 0.96, 1, 0], 3, 2);
+      else if (kind === "ink") { const red = i % 3 === 0; this.alpha.spawn(x, y, z, R(5), Math.random() * 3 + 1, R(5), 0.5 + Math.random() * 0.4, red ? 0.22 : 0.3, 0.08, red ? [0.6, 0.02, 0.03, 1] : [0.02, 0.015, 0.015, 1], red ? [0.35, 0.01, 0.02, 0] : [0.02, 0.02, 0.02, 0], 7, 2); }
+      else if (kind === "ghost") this.alpha.spawn(x, y, z, 0, 0.1, 0, 0.28, 0.42, 0.3, [0.08, 0.12, 0.22, 0.55], [0.05, 0.06, 0.12, 0], 0, 0);
+      else if (kind === "parry") { this.add.spawn(x, y, z, R(7), Math.random() * 5, R(7), 0.25 + Math.random() * 0.2, 0.1, 0.02, [4, 3.6, 2.4, 1], [2, 1, 0.3, 0], 10, 2); }
       else if (kind === "heal") this.add.spawn(x + R(0.4), y + Math.random(), z + R(0.4), 0, 1.5 + Math.random(), 0, 0.8, 0.16, 0.02, [0.6, 3, 1.2, 1], [0.2, 1, 0.4, 0], 0, 0);
     }
   }
@@ -266,6 +311,30 @@ class FX {
     }
   }
   clear() { this.add.clear(); this.alpha.clear(); this.items.forEach((it) => scene.remove(it.m)); this.items = []; }
+}
+
+// ---------- blade trail: a ribbon between the blade's base and tip over the last few frames ----------
+export function trail(color = 0xdff4ff) {
+  const N = 14, pos = new Float32Array(N * 2 * 3), col = new Float32Array(N * 2 * 3), idx = [];
+  for (let i = 0; i < N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.BufferAttribute(col, 3)); g.setIndex(idx);
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  m.frustumCulled = false; m.renderOrder = 7;
+  const pts = []; // {b, t, age}
+  m.push = (b, t, active, dt) => {
+    for (const p of pts) p.age += dt;
+    if (active) pts.unshift({ b: b.clone(), t: t.clone(), age: 0 });
+    while (pts.length > N || (pts.length && pts[pts.length - 1].age > 0.12)) pts.pop();
+    const n = pts.length; g.setDrawRange(0, Math.max(0, (n - 1) * 6));
+    for (let i = 0; i < N; i++) {
+      const p = pts[Math.min(i, n - 1)]; if (!p) break;
+      pos.set([p.b.x, p.b.y, p.b.z], i * 6); pos.set([p.t.x, p.t.y, p.t.z], i * 6 + 3);
+      const f = Math.max(0, 1 - p.age / 0.12) * (1 - i / N);
+      col.set([f * 0.15, f * 0.15, f * 0.15], i * 6); col.set([f, f, f], i * 6 + 3);
+    }
+    g.attributes.position.needsUpdate = true; g.attributes.color.needsUpdate = true;
+  };
+  return m;
 }
 
 // ---------- markers & HUD-in-world ----------
@@ -788,22 +857,37 @@ function setupWeather(T) {
 }
 
 // ---------- per-frame ----------
-let camX = 0, camZ = 0, shakeT = 0, shakeA = 0;
+let camX = 0, camZ = 0, shakeT = 0, shakeA = 0, pX = 0, pZ = 0, kick = 0, cin = null;
+export function punch(dx, dz, amt = 0.15) { pX += dx * amt; pZ += dz * amt; kick = Math.min(0.12, kick + amt * 0.25); }
+// Kill cam: cut to a low side angle around (x, z), slowly orbiting, then cut back.
+export function cinematic(x, z, angle, dur = 0.9, dist = 3.6, h = 1.3) { cin = { x, z, a: angle, t: 0, dur, dist, h }; }
+export const inCinematic = () => !!cin;
 const camOff = new THREE.Vector3(0, 1.08, 0.88).normalize();
 export function camFollow(x, z, dt, zoom = 1, snap = false) {
+  pX *= Math.exp(-dt * 12); pZ *= Math.exp(-dt * 12); kick *= Math.exp(-dt * 8);
+  if (ink) { const u = ink.uniforms; u.uFlashA.value *= Math.exp(-dt * 7); u.uAb.value *= Math.exp(-dt * 6); }
+  if (cin) {
+    cin.t += dt; cin.a += dt * 0.35;
+    const fov = 38; if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
+    camera.position.set(cin.x + Math.sin(cin.a) * cin.dist, cin.h, cin.z + Math.cos(cin.a) * cin.dist); camera.lookAt(cin.x, 0.9, cin.z);
+    key.follow(cin.x, 0, cin.z); setFill(0.9, cin.x, cin.z);
+    if (cin.t >= cin.dur) cin = null;
+    return;
+  }
   const k = snap ? 1 : 1 - Math.exp(-dt * 6);
   camX += (x - camX) * k; camZ += (z - camZ) * k;
   const portrait = camera.aspect < 1;
-  const fov = portrait ? 52 : 44; if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  const fov = (portrait ? 52 : 44) * (1 - kick); if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
   const d = (portrait ? 10 : 9.5) * zoom;
   shakeT = Math.max(0, shakeT - dt); const s = shakeT > 0 ? shakeA * (shakeT / 0.35) : 0;
-  camera.position.set(camX + camOff.x * d + (Math.random() - 0.5) * s, camOff.y * d + (Math.random() - 0.5) * s, camZ + camOff.z * d);
-  camera.lookAt(camX, 0.6, camZ - (portrait ? 0.6 : 0));
+  camera.position.set(camX + pX + camOff.x * d + (Math.random() - 0.5) * s, camOff.y * d + (Math.random() - 0.5) * s, camZ + pZ + camOff.z * d);
+  camera.lookAt(camX + pX, 0.6, camZ + pZ - (portrait ? 0.6 : 0));
   key.follow(camX, 0, camZ - 2);
   setFill(0.45, camX, camZ);
 }
 function setFill(i, x, z) { fill.intensity = i * (W.theme && W.theme.night ? 0.6 : 1); fill.position.copy(camera.position).add(new THREE.Vector3(1.5, 2, 0)); fill.target.position.set(x, 0.8, z); fill.target.updateMatrixWorld(); }
 export function camOrbit(x, y, z, r, h, a, lookY = 1, fillI = 1.3) {
+  cin = null; if (ink) { ink.uniforms.uFlashA.value *= 0.9; ink.uniforms.uAb.value *= 0.9; }
   const portrait = camera.aspect < 1, fov = portrait ? 50 : 40; if (camera.fov !== fov) { camera.fov = fov; camera.updateProjectionMatrix(); }
   camera.position.set(x + Math.sin(a) * r, y + h, z + Math.cos(a) * r); camera.lookAt(x, y + lookY, z); key.follow(x, 0, z); camX = x; camZ = z; setFill(fillI, x, z);
 }

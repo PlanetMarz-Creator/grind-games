@@ -21,7 +21,7 @@ const LensShader = {
 };
 
 export function createStage(canvas, opts = {}) {
-  const o = { exposure: 1, env: 1, bloom: 0.45, bloomThreshold: 0.85, bloomRadius: 0.5, shadows: true, fov: 45, lens: true, maxDpr: 2, transparent: false, ...opts };
+  const o = { exposure: 1, env: 1, bloom: 0.45, bloomThreshold: 0.85, bloomRadius: 0.5, shadows: true, fov: 45, lens: true, maxDpr: 2, transparent: false, depth: false, ...opts };
   // transparent: the canvas composites over the page (alpha), so bloom and the lens pass are skipped (they drop alpha).
   if (o.transparent) { o.bloom = 0; o.lens = false; }
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: o.transparent, powerPreference: "high-performance" });
@@ -39,6 +39,7 @@ export function createStage(canvas, opts = {}) {
 
   // Multisampled render target = antialiasing that survives post-processing.
   const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+  if (o.depth) target.depthTexture = new THREE.DepthTexture(1, 1); // lets post passes read scene depth (outlines, fog, DOF)
   const composer = new THREE.EffectComposer(renderer, target);
   composer.addPass(new THREE.RenderPass(scene, camera));
   const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(1, 1), o.bloom, o.bloomRadius, o.bloomThreshold);

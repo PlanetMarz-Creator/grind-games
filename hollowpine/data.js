@@ -162,7 +162,7 @@ export const LEVELS = [
     floors: [[-11, -8, 11, 15]], start: [0, 12], cliff: [-16, -13, 16], pool: [0, -10.5, 18, 5],
     props: [["rock", -9, -5.5, 1.3], ["rock", 9, -6, 1.5], ["rock", -5, 3, 0.9], ["rock", 6.5, 5, 0.8], ["rock", -8, 9, 1.1], ["rock", 3, -6.5, 0.7], ["tree", 10, 12, 1], ["tree", -10.2, 13, 0.9], ["tree", 10.3, 1, 0.8], ["lantern", -2.5, 9.5], ["lantern", 2.5, 9.5]],
     enemies: [["trainee", -5, 5.5, null, { face: 1.6 }], ["trainee", -3, 5.5, null, { face: -1.6 }], ["trainee", 4, 3, [[4, 3], [6, -3]]], ["trainee", -6, -2, [[-6, -2], [-2, -3]]], ["trainee", 0, -4, null, { face: 0 }], ["trainee", 7, 8, null, { face: 2.6 }], ["trainee", -8, -5, null, { face: 0.6 }], ["trainee", 5, -5, null, { face: -0.8 }]],
-    hints: ["Takedowns count double here. Nobody fights fair below the falls."],
+    hints: ["Nobody fights fair below the falls. Try 🛡 PARRY (L) just as a strike lands: it staggers them."],
     intro: [
       "Every child of Hollow Pine trains below the falls, where the water is cold enough to stop your breath.",
       "The older students don't go easy on Doran's son.",
@@ -174,7 +174,7 @@ export const LEVELS = [
     floors: [[-10, -10, 10, 10]], start: [0, 7], fence: [-10, -10, 10, 10],
     props: [["lantern", -8.5, -8.5], ["lantern", 8.5, -8.5], ["lantern", -8.5, 8.5], ["lantern", 8.5, 8.5], ["rack", -4, -9.2], ["rack", 4, -9.2], ["tree", -9.5, 0, 0.9], ["tree", 9.6, -2, 0.8]],
     enemies: [], boss: ["doran", 0, -4],
-    hints: ["Red on the ground means MOVE. Dodge through it or step out.", "Doran yields when he's had enough. Show him everything."],
+    hints: ["Red on the ground means MOVE. Dodge through it or step out.", "Tap 🛡 (L) the moment his blade lands to PARRY. Parries break posture.", "Break his posture, then hit ⚔ for a FINISHER."],
     intro: ["DORAN: \"Red on the ground means move. Everything else means strike.\"", "DORAN: \"Come. Show me what your mother's been teaching you behind my back.\""],
     outro: [
       "Doran lowers his blade and smiles. \"You have my eyes. Take this. It was mine at your age.\"",
